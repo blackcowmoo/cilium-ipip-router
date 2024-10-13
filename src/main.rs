@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
         },
         r = &mut server => {
             log::info!("server finished");
-            tokio::join!(controller_handle.stop(true),controller).1?;
+            tokio::join!(controller_handle.stop(true), controller).1?;
             r.unwrap();
         },
         r = &mut controller => {

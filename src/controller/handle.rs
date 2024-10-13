@@ -1,5 +1,4 @@
-use std::future::Future;
-use tokio::sync::{mpsc::UnboundedSender, oneshot};
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
 pub(crate) enum ControllerCommand {
@@ -22,13 +21,7 @@ impl ControllerHandle {
     }
 
     /// Stop incoming connection processing, stop all workers and exit.
-    pub fn stop(&self, graceful: bool) -> impl Future<Output = ()> {
-        let (tx, rx) = oneshot::channel::<()>();
-
+    pub async fn stop(&self, graceful: bool) {
         let _ = self.cmd_tx.send(ControllerCommand::Stop { graceful });
-
-        async {
-            let _ = rx.await;
-        }
     }
 }

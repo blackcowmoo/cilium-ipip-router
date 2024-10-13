@@ -62,7 +62,7 @@ impl Future for Controller {
 
 pub async fn run() -> Controller {
     log::info!("start controller");
-    return Controller::new(Controller::builder());
+    Controller::new(Controller::builder())
 }
 
 struct ControllerInner {}
@@ -86,17 +86,15 @@ impl ControllerInner {
                     Self::update_route(event).await;
                 },
                 _ = tick.tick()  => {
-                    let sig = builder.cmd_rx.try_recv();
-                    match sig {
-                        Ok(sig) => match sig {
+                    if let Ok(sig) = builder.cmd_rx.try_recv() {
+                        match sig {
                             ControllerCommand::Stop { graceful } => {
                                 if graceful {
                                     log::info!("shutdown controller");
                                     break;
                                 }
                             }
-                        },
-                        Err(_) => {},
+                        }
                     }
                 }
             };
