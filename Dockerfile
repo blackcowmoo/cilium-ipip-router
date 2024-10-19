@@ -5,5 +5,5 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bullseye-slim
-COPY --from=builder /usr/src/project/target/release/router /usr/local/bin/router
+COPY --from=builder /usr/src/router/target/release/router /usr/local/bin/router
 CMD ["router"]
