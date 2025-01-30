@@ -5,9 +5,8 @@ use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
 use k8s_openapi::api::core::v1::Node;
 use kube::{
-    api::Api,
+    api::{Api, WatchEvent, WatchParams},
     client::Client,
-    runtime::{watcher, WatchStreamExt},
     ResourceExt,
 };
 use std::{
@@ -73,17 +72,30 @@ impl ControllerInner {
             .await
             .expect("failed to create kube Client");
         let nodes: Api<Node> = Api::all(client);
-        let mut stream = watcher(nodes, watcher::Config::default())
-            .default_backoff()
-            .applied_objects()
+        let lp = WatchParams::default();
+
+        let mut stream = nodes
+            .watch(&lp, "0")
+            .await
+            .expect("failed to watch nodes")
             .boxed();
 
         let mut tick = time::interval(Duration::from_secs(1));
 
         loop {
             tokio::select! {
-                Ok(Some(event)) = stream.try_next() => {
-                    Self::update_route(event).await;
+                Ok(Some(status)) = stream.try_next() => {
+                    match status {
+                        WatchEvent::Added(node) |
+                        WatchEvent::Modified(node)  => {
+                            Self::update_route(node).await;
+                        },
+                        WatchEvent::Deleted(node) => {
+                            Self::delete_route(node).await;
+                        },
+                         WatchEvent::Bookmark(s) => {},
+                         WatchEvent::Error(s) => println!("{}", s),
+                    }
                 },
                 _ = tick.tick()  => {
                     if let Ok(sig) = builder.cmd_rx.try_recv() {
@@ -105,5 +117,9 @@ impl ControllerInner {
 
     async fn update_route(node: Node) {
         log::info!("Applied: {}", node.name_any());
+    }
+
+    async fn delete_route(node: Node) {
+        log::info!("Deleted: {}", node.name_any());
     }
 }
