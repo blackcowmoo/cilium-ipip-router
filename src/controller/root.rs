@@ -17,6 +17,85 @@ use std::{
 };
 use tokio::time::{self, Duration};
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kube::client::Client;
+    use std::sync::{Arc, Mutex};
+    use tokio::sync::mpsc;
+
+    type MockWatchStream = futures::stream::BoxStream<'static, Result<WatchEvent<Node>, kube::Error>>;
+
+    struct MockApiClient {
+        events: Arc<Mutex<Vec<WatchEvent<Node>>>>,
+    }
+
+    impl MockApiClient {
+        fn new() -> Self {
+            MockApiClient {
+                events: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn add_event(&self, event: WatchEvent<Node>) {
+            self.events.lock().unwrap().push(event);
+        }
+    }
+
+    fn create_mock_client(events: Vec<WatchEvent<Node>>) -> Client {
+        let api_client = Arc::new(MockApiClient {
+            events: Arc::new(Mutex::new(events)),
+        });
+
+        Client::new(
+            kube::config::Config::incluster().unwrap(),
+            Default::default(),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_watch_node_added() {
+        let node = Node {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some("test-node".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let builder = ControllerBuilder::new();
+        let _controller = Controller::new(builder);
+    }
+
+    #[tokio::test]
+    async fn test_watch_node_modified() {
+        let node = Node {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some("test-node".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let builder = ControllerBuilder::new();
+        let _controller = Controller::new(builder);
+    }
+
+    #[tokio::test]
+    async fn test_watch_node_deleted() {
+        let node = Node {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some("test-node".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let builder = ControllerBuilder::new();
+        let _controller = Controller::new(builder);
+    }
+}
+
 // #[derive(CustomResource, Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 // #[kube(group = "cilium.io", version = "v2", kind = "CiliumEndpoint", namespaced)]
 // pub struct CiliumEndpointSpec {
