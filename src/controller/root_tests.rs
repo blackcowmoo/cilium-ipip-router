@@ -1,5 +1,3 @@
-
-
 #[tokio::test]
 async fn test_watch_node_added() {
     let builder = ControllerBuilder::new();
