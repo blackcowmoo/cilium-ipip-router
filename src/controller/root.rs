@@ -93,7 +93,7 @@ impl ControllerInner {
                         WatchEvent::Deleted(node) => {
                             Self::delete_route(node).await;
                         },
-                         WatchEvent::Bookmark(s) => {},
+                         WatchEvent::Bookmark(_s) => {},
                          WatchEvent::Error(s) => println!("{}", s),
                     }
                 },
