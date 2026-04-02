@@ -1,6 +1,7 @@
 name: github-actions/test
 
-on: [push, pull_request]
+on:
+  push:
 
 jobs:
   test:
