@@ -6,7 +6,7 @@ use mockall::mock;
 
 mock! {
     pub NodeApi {}
-    
+
     impl<'a> Api<Node> for NodeApi {
         fn name(&self) -> &str;
         fn namespace(&self) -> &str;
