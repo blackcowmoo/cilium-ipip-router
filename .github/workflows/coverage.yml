@@ -10,18 +10,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
         with:
-          node-version: 'lts/*'
+          toolchain: nightly
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
 
       - name: Run tests with coverage
-        run: npm run test:coverage
+        run: cargo tarpaulin --output-dir coverage
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage/lcov.info
