@@ -63,7 +63,7 @@ jobs:
             BODY+="| **Difference** | ${DIFF}% |\n\n"
             
             BODY+="### Uncovered Lines in This PR\n\n"
-            BODY+="Run `cargo tarpaulin --verbose` locally to see detailed coverage information.\n"
+            BODY+="Run \`cargo tarpaulin --verbose\` locally to see detailed coverage information."
             
             gh pr comment ${{ github.event.number }} --body "$BODY"
           fi
