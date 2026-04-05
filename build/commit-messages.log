@@ -1,7 +1,0 @@
-- Move unit tests to separate module file
-- Add re-export of root module items
-- refactor: remove unused variable and cleanup import
-- Remove extra blank lines from root_tests.rs
-- Add ControllerBuilder and ControllerHandle imports to root_tests.rs
-- refactor: simplify test imports by removing ControllerHandle usage
-- Add cfg(test) attribute to root_tests module
