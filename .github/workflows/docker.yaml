@@ -1,10 +1,10 @@
-name: docker
+name: test
 
 on:
   push:
 
 jobs:
-  build:
+  docker-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
