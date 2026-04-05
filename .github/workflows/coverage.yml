@@ -26,3 +26,43 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: coverage/lcov.info
+
+      - name: Comment coverage difference
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE_REF=${{ github.event.pull_request.base.sha }}
+          HEAD_REF=${{ github.event.pull_request.head.sha }}
+          
+          echo "Comparing coverage between HEAD ($HEAD_REF) and BASE ($BASE_REF)"
+          
+          git fetch origin $BASE_REF
+          git checkout $BASE_REF
+          cargo tarpaulin --out Lcov --output-dir coverage-base 2>/dev/null || true
+          
+          git checkout $HEAD_REF
+          cargo tarpaulin --out Lcov --output-dir coverage-head 2>/dev/null || true
+          
+          if [ -f coverage-base/lcov.info ] && [ -f coverage-head/lcov.info ]; then
+            BASE_COVERAGE=$(grep -oP 'BRF:\K[0-9.]+' coverage-base/lcov.info | head -1 || echo "0")
+            HEAD_COVERAGE=$(grep -oP 'BRF:\K[0-9.]+' coverage-head/lcov.info | head -1 || echo "0")
+            
+            DIFF=$(echo "$HEAD_COVERAGE - $BASE_COVERAGE" | bc -l 2>/dev/null || echo "N/A")
+            
+            echo "Base coverage: ${BASE_COVERAGE}%"
+            echo "Head coverage: ${HEAD_COVERAGE}%"
+            echo "Difference: ${DIFF}%"
+            
+            BODY="## Coverage Difference\n\n"
+            BODY+="| Reference | Coverage |\n"
+            BODY+="|-----------|----------|\n"
+            BODY+="| Base ($BASE_REF) | ${BASE_COVERAGE}% |\n"
+            BODY+="| Head ($HEAD_REF) | ${HEAD_COVERAGE}% |\n"
+            BODY+="| **Difference** | ${DIFF}% |\n\n"
+            
+            BODY+="### Uncovered Lines in This PR\n\n"
+            BODY+="Run `cargo tarpaulin --verbose` locally to see detailed coverage information.\n"
+            
+            gh pr comment ${{ github.event.number }} --body "$BODY"
+          fi
