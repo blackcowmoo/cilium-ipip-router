@@ -38,6 +38,7 @@ jobs:
           echo "Comparing coverage between HEAD ($HEAD_REF) and BASE ($BASE_REF)"
           
           git fetch origin $BASE_REF
+          git fetch origin $HEAD_REF
           git checkout $BASE_REF
           cargo tarpaulin --out Lcov --output-dir coverage-base 2>/dev/null || true
           
