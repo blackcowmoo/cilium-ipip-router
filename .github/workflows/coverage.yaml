@@ -66,7 +66,7 @@ jobs:
             BODY+="| **Difference** | ${DIFF}% |\n\n"
             
             BODY+="### Uncovered Lines in This PR\n\n"
-            BODY+="Run \`cargo tarpaulin --verbose\` locally to see detailed coverage information."
+            BODY+="Run \`cargo tarpaulin --verbose\` locally to see detailed coverage information.\n"
             
             COMMENT_EXISTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[].body' | grep -c "## Coverage Difference" || true)
             
