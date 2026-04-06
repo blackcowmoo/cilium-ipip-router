@@ -23,12 +23,6 @@ jobs:
       - name: Run tests with coverage
         run: cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
-      - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: coverage/lcov.info
-
       - name: Comment coverage difference
         if: github.event_name == 'pull_request'
         env:
