@@ -9,6 +9,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@v1
@@ -19,7 +21,7 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Run tests with coverage
-        run: cargo tarpaulin --out Lcov --output-dir coverage
+        run: cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
@@ -39,11 +41,12 @@ jobs:
           
           git fetch origin $BASE_REF
           git fetch origin $HEAD_REF
-          git checkout $BASE_REF
-          cargo tarpaulin --out Lcov --output-dir coverage-base 2>/dev/null || true
           
-          git checkout $HEAD_REF
-          cargo tarpaulin --out Lcov --output-dir coverage-head 2>/dev/null || true
+          git checkout $BASE_REF -f
+          cargo tarpaulin --verbose --out Lcov --output-dir coverage-base 2>/dev/null || true
+          
+          git checkout $HEAD_REF -f
+          cargo tarpaulin --verbose --out Lcov --output-dir coverage-head 2>/dev/null || true
           
           if [ -f coverage-base/lcov.info ] && [ -f coverage-head/lcov.info ]; then
             BASE_COVERAGE=$(grep -oP 'BRF:\K[0-9.]+' coverage-base/lcov.info | head -1 || echo "0")
@@ -65,5 +68,12 @@ jobs:
             BODY+="### Uncovered Lines in This PR\n\n"
             BODY+="Run \`cargo tarpaulin --verbose\` locally to see detailed coverage information."
             
-            gh pr comment ${{ github.event.number }} --body "$BODY"
+            COMMENT_EXISTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[].body' | grep -c "## Coverage Difference" || true)
+            
+            if [ "$COMMENT_EXISTS" -gt 0 ]; then
+              COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[] | select(.body | contains("## Coverage Difference")) | .id')
+              gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID -X PATCH -f body="$BODY"
+            else
+              gh pr comment ${{ github.event.number }} --body "$BODY"
+            fi
           fi
