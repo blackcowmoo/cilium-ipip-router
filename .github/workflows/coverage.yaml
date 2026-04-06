@@ -72,7 +72,8 @@ jobs:
             
             if [ "$COMMENT_EXISTS" -gt 0 ]; then
               COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[] | select(.body | contains("## Coverage Difference")) | .id')
-              gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID -X PATCH -f body="$BODY"
+              echo -n "$BODY" > /tmp/comment_body.txt
+              gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID -X PATCH --input /tmp/comment_body.txt
             else
               gh pr comment ${{ github.event.number }} --body "$BODY"
             fi
