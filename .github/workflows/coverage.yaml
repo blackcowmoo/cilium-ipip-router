@@ -21,7 +21,10 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Run tests with coverage
-        run: cargo tarpaulin --verbose --out Lcov --output-dir coverage
+        run: |
+          set -e
+          echo "Running: cargo tarpaulin --verbose --out Lcov --output-dir coverage"
+          cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
       - name: Comment coverage difference
         if: github.event_name == 'pull_request'
