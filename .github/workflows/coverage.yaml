@@ -20,59 +20,51 @@ jobs:
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
 
-      - name: Run tests with coverage
+      - name: Run tests and get coverage
+        id: coverage
         run: |
           set -e
           echo "Running: cargo tarpaulin --verbose --out Lcov --output-dir coverage"
           cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
-      - name: Comment coverage difference
+          if [ -f coverage/lcov.info ]; then
+            TOTAL_LINES=$(grep -oP 'TN:\K[^[]+' coverage/lcov.info | head -1 | tr -d ' ')
+            COVERED_LINES=$(grep -oP 'LF:\K[0-9]+' coverage/lcov.info | tail -1 || echo "0")
+            
+            if [ -n "$TOTAL_LINES" ] && [ "$TOTAL_LINES" != "0" ]; then
+              COVERAGE=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "0")
+            else
+              COVERAGE="0"
+            fi
+            
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+            echo "Total lines: $TOTAL_LINES, Covered lines: $COVERED_LINES, Coverage: $COVERAGE%"
+          else
+            echo "No coverage report generated"
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment coverage
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          BASE_REF=${{ github.event.pull_request.base.sha }}
-          HEAD_REF=${{ github.event.pull_request.head.sha }}
           
-          echo "Comparing coverage between HEAD ($HEAD_REF) and BASE ($BASE_REF)"
+          COVERAGE=${{ steps.coverage.outputs.coverage }}
+          BODY="## Coverage\n\n"
+          BODY+="| Coverage |\n"
+          BODY+="|----------|\n"
+          BODY+="| ${COVERAGE}% |\n\n"
+          BODY+="### Uncovered Lines in This PR\n\n"
+          BODY+="Run \`cargo tarpaulin --verbose\` locally to see detailed coverage information.\n"
           
-          git fetch origin $BASE_REF
-          git fetch origin $HEAD_REF
+          COMMENT_EXISTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[].body' | grep -c "## Coverage" || true)
           
-          git checkout $BASE_REF -f
-          cargo tarpaulin --verbose --out Lcov --output-dir coverage-base 2>/dev/null || true
-          
-          git checkout $HEAD_REF -f
-          cargo tarpaulin --verbose --out Lcov --output-dir coverage-head 2>/dev/null || true
-          
-          if [ -f coverage-base/lcov.info ] && [ -f coverage-head/lcov.info ]; then
-            BASE_COVERAGE=$(grep -oP 'BRF:\K[0-9.]+' coverage-base/lcov.info | head -1 || echo "0")
-            HEAD_COVERAGE=$(grep -oP 'BRF:\K[0-9.]+' coverage-head/lcov.info | head -1 || echo "0")
-            
-            DIFF=$(echo "$HEAD_COVERAGE - $BASE_COVERAGE" | bc -l 2>/dev/null || echo "N/A")
-            
-            echo "Base coverage: ${BASE_COVERAGE}%"
-            echo "Head coverage: ${HEAD_COVERAGE}%"
-            echo "Difference: ${DIFF}%"
-            
-            BODY="## Coverage Difference\n\n"
-            BODY+="| Reference | Coverage |\n"
-            BODY+="|-----------|----------|\n"
-            BODY+="| Base ($BASE_REF) | ${BASE_COVERAGE}% |\n"
-            BODY+="| Head ($HEAD_REF) | ${HEAD_COVERAGE}% |\n"
-            BODY+="| **Difference** | ${DIFF}% |\n\n"
-            
-            BODY+="### Uncovered Lines in This PR\n\n"
-            BODY+="Run \`cargo tarpaulin --verbose\` locally to see detailed coverage information.\n"
-            
-            COMMENT_EXISTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[].body' | grep -c "## Coverage Difference" || true)
-            
-            if [ "$COMMENT_EXISTS" -gt 0 ]; then
-              COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[] | select(.body | contains("## Coverage Difference")) | .id' | head -n1)
-              jq -n --arg body "$BODY" '{"body": $body}' > /tmp/comment_body.json
-              gh api --method PATCH --input /tmp/comment_body.json repos/${{ github.repository }}/issues/comments/$COMMENT_ID
-            else
-              gh pr comment ${{ github.event.number }} --body "$BODY"
-            fi
+          if [ "$COMMENT_EXISTS" -gt 0 ]; then
+            COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[] | select(.body | contains("## Coverage")) | .id' | head -n1)
+            jq -n --arg body "$BODY" '{"body": $body}' > /tmp/comment_body.json
+            gh api --method PATCH --input /tmp/comment_body.json repos/${{ github.repository }}/issues/comments/$COMMENT_ID
+          else
+            gh pr comment ${{ github.event.number }} --body "$BODY"
           fi
