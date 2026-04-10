@@ -59,7 +59,7 @@ jobs:
           
           if [ "$COMMENT_EXISTS" -gt 0 ]; then
             COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[] | select(.body | startswith("## Coverage")) | .id' | head -n1)
-            gh pr comment ${{ github.event.number }} --body-file /tmp/coverage_comment.md --edit $COMMENT_ID
+            gh pr comment ${{ github.event.number }} --body-file /tmp/coverage_comment.md --edit-last
           else
             gh pr comment ${{ github.event.number }} --body-file /tmp/coverage_comment.md
           fi
