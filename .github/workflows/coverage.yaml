@@ -28,8 +28,8 @@ jobs:
           cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
           if [ -f coverage/lcov.info ]; then
-            TOTAL_LINES=$(grep -oP 'TN:\K[^[]+' coverage/lcov.info | head -1 | tr -d ' ')
-            COVERED_LINES=$(grep -oP 'LF:\K[0-9]+' coverage/lcov.info | tail -1 || echo "0")
+            TOTAL_LINES=$(grep '^LF:' coverage/lcov.info | awk '{sum+=$2} END {print sum}' || echo "0")
+            COVERED_LINES=$(grep '^LH:' coverage/lcov.info | awk '{sum+=$2} END {print sum}' || echo "0")
             
             if [ -n "$TOTAL_LINES" ] && [ "$TOTAL_LINES" != "0" ]; then
               COVERAGE=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "0")
