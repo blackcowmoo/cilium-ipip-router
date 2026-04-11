@@ -55,6 +55,45 @@ jobs:
             echo "No lcov report file found"
           fi
 
+      - name: Get diff lines and calculate coverage
+        id: diff_coverage
+        run: |
+          set -e
+          
+          if [ -f coverage/lcov.info ]; then
+            DIFF_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep '\.rs$' | tr '\n' ' ' || echo "")
+            
+            if [ -n "$DIFF_FILES" ]; then
+              TOTAL_LINES=0
+              COVERED_LINES=0
+              
+              for FILE in $DIFF_FILES; do
+                if [ -f "coverage/lcov.info" ]; then
+                  FILE_TOTAL=$(grep -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LH:' | awk '{sum+=$2} END {print sum}' || echo "0")
+                  FILE_LINES=$(grep -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LF:' | awk '{sum+=$2} END {print sum}' || echo "0")
+                  
+                  TOTAL_LINES=$((TOTAL_LINES + FILE_LINES))
+                  COVERED_LINES=$((COVERED_LINES + FILE_TOTAL))
+                fi
+              done
+              
+              if [ -n "$TOTAL_LINES" ] && [ "$TOTAL_LINES" != "0" ]; then
+                DIFF_COVERAGE=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "0")
+              else
+                DIFF_COVERAGE="0"
+              fi
+              
+              echo "diff_coverage=$DIFF_COVERAGE" >> $GITHUB_OUTPUT
+              echo "Diff files covered: $COVERED_LINES / $TOTAL_LINES = $DIFF_COVERAGE%"
+            else
+              echo "No Rust files in diff"
+              echo "diff_coverage=0" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No coverage report generated"
+            echo "diff_coverage=0" >> $GITHUB_OUTPUT
+          fi
+
       - name: Comment coverage
         if: github.event_name == 'pull_request'
         env:
@@ -63,8 +102,9 @@ jobs:
           set -ex
           
           COVERAGE=${{ steps.coverage.outputs.coverage }}
+          DIFF_COVERAGE=${{ steps.diff_coverage.outputs.diff_coverage }}
           
-          printf '## Coverage\n\n| Coverage |\n|----------|\n| %s%% |\n\n### Uncovered Lines in This PR\n\nRun `cargo tarpaulin --verbose` locally to see detailed coverage information.\n' "${COVERAGE}" > /tmp/coverage_comment.md
+          printf '## Coverage\n\n| Coverage |\n|----------|\n| %s%% |\n\n### Coverage for Diff Lines\n\n| Diff Coverage |\n|---------------|\n| %s%% |\n\n### Uncovered Lines in This PR\n\nRun `cargo tarpaulin --verbose` locally to see detailed coverage information.\n' "${COVERAGE}" "${DIFF_COVERAGE}" > /tmp/coverage_comment.md
           
           COMMENT_EXISTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments --jq '.[].body' | grep -c "## Coverage" || true)
           
