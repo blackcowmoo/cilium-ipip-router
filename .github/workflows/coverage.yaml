@@ -28,20 +28,20 @@ jobs:
           cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
           if [ -f coverage/lcov.info ]; then
-            TOTAL_LINES=$(grep '^LF:' coverage/lcov.info | awk '{sum+=$2} END {print sum}' || echo "0")
-            COVERED_LINES=$(grep '^LH:' coverage/lcov.info | awk '{sum+=$2} END {print sum}' || echo "0")
+            TOTAL_LINES=$(grep '^LF:' coverage/lcov.info | awk '{sum+=$2} END {print sum+0}')
+            COVERED_LINES=$(grep '^LH:' coverage/lcov.info | awk '{sum+=$2} END {print sum+0}')
             
-            if [ -n "$TOTAL_LINES" ] && [ "$TOTAL_LINES" != "0" ]; then
-              COVERAGE=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "0")
+            if [ "$TOTAL_LINES" -gt 0 ]; then
+              COVERAGE=$(awk "BEGIN {printf \"%.2f\", $COVERED_LINES * 100 / $TOTAL_LINES}")
             else
-              COVERAGE="0"
+              COVERAGE="0.00"
             fi
             
             echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
             echo "Total lines: $TOTAL_LINES, Covered lines: $COVERED_LINES, Coverage: $COVERAGE%"
           else
             echo "No coverage report generated"
-            echo "coverage=0" >> $GITHUB_OUTPUT
+            echo "coverage=0.00" >> $GITHUB_OUTPUT
            fi
 
       - name: Print lcov coverage report
@@ -64,35 +64,35 @@ jobs:
             DIFF_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep '\.rs$' | tr '\n' ' ' || echo "")
             
             if [ -n "$DIFF_FILES" ]; then
-              TOTAL_LINES=0
-              COVERED_LINES=0
-              
-              for FILE in $DIFF_FILES; do
-                if [ -f "coverage/lcov.info" ]; then
-                  FILE_TOTAL=$(grep -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LH:' | awk '{sum+=$2} END {print sum}' || echo "0")
-                  FILE_LINES=$(grep -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LF:' | awk '{sum+=$2} END {print sum}' || echo "0")
-                  
-                  TOTAL_LINES=$((TOTAL_LINES + FILE_LINES))
-                  COVERED_LINES=$((COVERED_LINES + FILE_TOTAL))
-                fi
-              done
-              
-              if [ -n "$TOTAL_LINES" ] && [ "$TOTAL_LINES" != "0" ]; then
-                DIFF_COVERAGE=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "0")
-              else
-                DIFF_COVERAGE="0"
-              fi
-              
-              echo "diff_coverage=$DIFF_COVERAGE" >> $GITHUB_OUTPUT
-              echo "Diff files covered: $COVERED_LINES / $TOTAL_LINES = $DIFF_COVERAGE%"
-            else
-              echo "No Rust files in diff"
-              echo "diff_coverage=0" >> $GITHUB_OUTPUT
-            fi
+               TOTAL_LINES=0
+               COVERED_LINES=0
+               
+               for FILE in $DIFF_FILES; do
+                 if [ -f "coverage/lcov.info" ]; then
+                   FILE_TOTAL=$(grep -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LH:' | awk '{sum+=$2} END {print sum+0}')
+                   FILE_LINES=$(grep -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LF:' | awk '{sum+=$2} END {print sum+0}')
+                   
+                   TOTAL_LINES=$((TOTAL_LINES + FILE_LINES))
+                   COVERED_LINES=$((COVERED_LINES + FILE_TOTAL))
+                 fi
+               done
+               
+               if [ "$TOTAL_LINES" -gt 0 ]; then
+                 DIFF_COVERAGE=$(awk "BEGIN {printf \"%.2f\", $COVERED_LINES * 100 / $TOTAL_LINES}")
+               else
+                 DIFF_COVERAGE="0.00"
+               fi
+               
+               echo "diff_coverage=$DIFF_COVERAGE" >> $GITHUB_OUTPUT
+               echo "Diff files covered: $COVERED_LINES / $TOTAL_LINES = $DIFF_COVERAGE%"
+             else
+               echo "No Rust files in diff"
+               echo "diff_coverage=0.00" >> $GITHUB_OUTPUT
+             fi
           else
-            echo "No coverage report generated"
-            echo "diff_coverage=0" >> $GITHUB_OUTPUT
-          fi
+             echo "No coverage report generated"
+             echo "diff_coverage=0.00" >> $GITHUB_OUTPUT
+           fi
 
       - name: Get uncovered lines in diff
         id: uncovered_lines
