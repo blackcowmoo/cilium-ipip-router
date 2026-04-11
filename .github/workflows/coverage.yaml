@@ -145,7 +145,7 @@ jobs:
           DIFF_COVERAGE=${{ steps.diff_coverage.outputs.diff_coverage }}
           UNCOVERED=${{ steps.uncovered_lines.outputs.uncovered }}
           
-          printf '## Coverage\n\n| Coverage |\n|----------|\n| %s%% |\n\n### Coverage for Diff Lines\n\n| Diff Coverage |\n|---------------|\n| %s%% |\n\n### Uncovered Lines in This PR\n\nRun `cargo tarpaulin --verbose` locally to see detailed coverage information.\n' "${COVERAGE}" "${DIFF_COVERAGE}" > /tmp/coverage_comment.md
+          printf '## Coverage\n\n| Coverage |\n|----------|\n| %s%% |\n\n### Coverage for Diff Lines\n\n| Diff Coverage |\n|---------------|\n| %s%% |\n\n' "${COVERAGE}" "${DIFF_COVERAGE}" > /tmp/coverage_comment.md
           
           if [ -n "$UNCOVERED" ]; then
             printf '\n<details>\n<summary>Uncovered Lines Details</summary>\n\n\`\`\`\n%s\n\`\`\`\n</details>\n' "$UNCOVERED" >> /tmp/coverage_comment.md
