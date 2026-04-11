@@ -42,6 +42,17 @@ jobs:
           else
             echo "No coverage report generated"
             echo "coverage=0" >> $GITHUB_OUTPUT
+           fi
+
+      - name: Print lcov coverage report
+        if: always()
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            echo "=== LCOV Coverage Report ==="
+            cat coverage/lcov.info
+            echo "=== End of LCOV Report ==="
+          else
+            echo "No lcov report file found"
           fi
 
       - name: Comment coverage
