@@ -23,7 +23,7 @@ jobs:
       - name: Run tests and get coverage
         id: coverage
         run: |
-          set -e
+          set -ex
           echo "Running: cargo tarpaulin --verbose --out Lcov --output-dir coverage"
           cargo tarpaulin --verbose --out Lcov --output-dir coverage
 
@@ -58,7 +58,7 @@ jobs:
       - name: Get diff lines and calculate coverage
         id: diff_coverage
         run: |
-          set -e
+          set -ex
           
           if [ -f coverage/lcov.info ]; then
             DIFF_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep '\.rs$' | tr '\n' ' ' || echo "")
@@ -101,7 +101,7 @@ jobs:
         id: uncovered_lines
         if: always()
         run: |
-          set -e
+          set -ex
           
           if [ -f coverage/lcov.info ]; then
             DIFF_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep '\.rs$' | tr '\n' ' ' || echo "")
