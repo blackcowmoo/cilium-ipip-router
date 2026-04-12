@@ -94,9 +94,9 @@ mod tests {
         let _added = WatchEvent::Added(node.clone());
         let _modified = WatchEvent::Modified(node.clone());
         let _deleted = WatchEvent::Deleted(node);
-      let _bookmark = WatchEvent::Bookmark(Bookmark {
-           resource_version: Some("12345".to_string()),
-       });
+        let _bookmark = WatchEvent::Bookmark(Bookmark {
+            resource_version: Some("12345".to_string()),
+        });
     }
 
     #[test]
