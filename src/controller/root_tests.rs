@@ -1,9 +1,5 @@
-use crate::controller::builder::ControllerBuilder;
 use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus};
-use kube::{
-    api::{ListParams, WatchEvent},
-    Client,
-};
+use kube::api::{ListParams, WatchEvent};
 use mockall::mock;
 
 mock! {
@@ -24,7 +20,12 @@ mock! {
             &self,
             _opts: &ListParams,
             _resource_version: &str,
-        ) -> Result<kube::runtime::watcher::Watcher<std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<WatchEvent<Node>, kube::Error>>>>, kube::Error> {
+        ) -> Result<
+            kube::runtime::watcher::Watcher<
+                std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<WatchEvent<Node>, kube::Error>>>>,
+            >,
+            kube::Error,
+        > {
             Err(kube::Error::ApiError(kube::ErrorResponse {
                 status: "Error".to_string(),
                 code: 500,
@@ -40,13 +41,8 @@ mod tests {
     use crate::controller::builder::ControllerBuilder;
     use crate::controller::handle::ControllerCommand;
     use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus};
-    use kube::{
-        api::{ListParams, WatchEvent},
-        Client,
-    };
+    use kube::api::{ListParams, WatchEvent};
     use mockall::mock;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
 
     mock! {
         pub TestNodeApi {}
@@ -64,7 +60,12 @@ mod tests {
                 &self,
                 _opts: &ListParams,
                 _resource_version: &str,
-            ) -> Result<kube::runtime::watcher::Watcher<std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<WatchEvent<Node>, kube::Error>>>>, kube::Error> {
+            ) -> Result<
+                kube::runtime::watcher::Watcher<
+                    std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<WatchEvent<Node>, kube::Error>>>>,
+                >,
+                kube::Error,
+            > {
                 Err(kube::Error::ApiError(kube::ErrorResponse {
                     status: "Error".to_string(),
                     code: 500,
@@ -170,9 +171,9 @@ mod tests {
         let _modified = WatchEvent::Modified(node.clone());
         let _deleted = WatchEvent::Deleted(node);
         let _bookmark = WatchEvent::Bookmark(k8s_openapi::api::core::v1::ObjectReference {
-            api_version: "v1".to_string(),
-            kind: "Node".to_string(),
-            name: "test".to_string(),
+            api_version: Some("v1".to_string()),
+            kind: Some("Node".to_string()),
+            name: Some("test".to_string()),
             ..Default::default()
         });
     }
@@ -202,8 +203,8 @@ mod tests {
             ..Default::default()
         };
 
-        assert_eq!(status.node_info.unwrap().kernel_version, "5.15.0");
-        assert_eq!(status.node_info.unwrap().os_image, "Ubuntu 22.04");
+        assert_eq!(status.node_info.clone().unwrap().kernel_version, "5.15.0");
+        assert_eq!(status.node_info.clone().unwrap().os_image, "Ubuntu 22.04");
     }
 
     #[test]
@@ -215,7 +216,7 @@ mod tests {
     #[test]
     fn test_node_api_list_params_with_timeout() {
         use kube::api::ListParams;
-        let lp = ListParams::timeout(30);
-        assert_eq!(lp.timeout, Some(std::time::Duration::from_secs(30)));
+        let lp = ListParams::timeout(ListParams::default(), 30);
+        assert_eq!(lp.timeout, Some(30));
     }
 }
