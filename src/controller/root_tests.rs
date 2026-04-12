@@ -1,14 +1,17 @@
 use crate::controller::builder::ControllerBuilder;
 use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus};
-use kube::{api::{ListParams, WatchEvent}, Client};
+use kube::{
+    api::{ListParams, WatchEvent},
+    Client,
+};
 use mockall::mock;
 
 mock! {
     pub NodeApi {}
-    
+
     impl<'a> kube::api::Api<Node> for NodeApi {
         type ListResult = WatchEvent<Node>;
-        
+
         fn list(&self, _opts: &ListParams) -> Result<Vec<Node>, kube::Error> {
             Err(kube::Error::ApiError(kube::ErrorResponse {
                 status: "Error".to_string(),
@@ -16,7 +19,7 @@ mock! {
                 reason: "Not Implemented".to_string(),
             }))
         }
-        
+
         fn watch(
             &self,
             _opts: &ListParams,
@@ -37,14 +40,17 @@ mod tests {
     use crate::controller::builder::ControllerBuilder;
     use crate::controller::handle::ControllerCommand;
     use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus};
-    use kube::{api::{ListParams, WatchEvent}, Client};
+    use kube::{
+        api::{ListParams, WatchEvent},
+        Client,
+    };
     use mockall::mock;
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
     mock! {
         pub TestNodeApi {}
-        
+
         impl<'a> kube::api::Api<Node> for TestNodeApi {
             fn list(&self, _opts: &ListParams) -> Result<Vec<Node>, kube::Error> {
                 Err(kube::Error::ApiError(kube::ErrorResponse {
@@ -53,7 +59,7 @@ mod tests {
                     reason: "Test".to_string(),
                 }))
             }
-            
+
             fn watch(
                 &self,
                 _opts: &ListParams,
@@ -89,27 +95,33 @@ mod tests {
                 ..Default::default()
             }),
         };
-        
-        assert_eq!(node.spec.unwrap().external_id, Some("test-node".to_string()));
+
+        assert_eq!(
+            node.spec.unwrap().external_id,
+            Some("test-node".to_string())
+        );
     }
 
     #[tokio::test]
     async fn test_controller_builder_integration() {
         let builder = ControllerBuilder::new();
-        assert!(builder.cmd_tx.send(ControllerCommand::Stop { graceful: true }).is_ok());
+        assert!(builder
+            .cmd_tx
+            .send(ControllerCommand::Stop { graceful: true })
+            .is_ok());
     }
 
     #[tokio::test]
     async fn test_controller_with_mock_api() {
         let mock_api = TestNodeApi::default();
         let _ = mock_api;
-        
+
         let builder = ControllerBuilder::new();
         let controller = crate::controller::root::Controller::new(builder);
         let handle = controller.handle();
-        
+
         handle.stop(true).await;
-        
+
         let _ = controller.await;
     }
 
@@ -129,7 +141,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        
+
         assert!(node.status.is_some());
         assert!(node.spec.is_some());
     }
@@ -141,7 +153,7 @@ mod tests {
             spec: None,
             status: None,
         };
-        
+
         assert!(node.status.is_none());
         assert!(node.spec.is_none());
     }
@@ -153,7 +165,7 @@ mod tests {
             spec: None,
             status: None,
         };
-        
+
         let _added = WatchEvent::Added(node.clone());
         let _modified = WatchEvent::Modified(node.clone());
         let _deleted = WatchEvent::Deleted(node);
@@ -172,7 +184,7 @@ mod tests {
             pod_cidr: Some("10.0.0.0/24".to_string()),
             ..Default::default()
         };
-        
+
         assert_eq!(spec.external_id, Some("external-id".to_string()));
         assert_eq!(spec.pod_cidr, Some("10.0.0.0/24".to_string()));
     }
@@ -189,7 +201,7 @@ mod tests {
             phase: Some("Running".to_string()),
             ..Default::default()
         };
-        
+
         assert_eq!(status.node_info.unwrap().kernel_version, "5.15.0");
         assert_eq!(status.node_info.unwrap().os_image, "Ubuntu 22.04");
     }
