@@ -69,11 +69,14 @@ jobs:
                
                for FILE in $DIFF_FILES; do
                  if [ -f "coverage/lcov.info" ]; then
-                   FILE_TOTAL=$(grep -i -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LH:' | awk '{sum+=$2} END {print sum+0}')
-                   FILE_LINES=$(grep -i -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null | grep '^LF:' | awk '{sum+=$2} END {print sum+0}')
+                   FILE_TOTAL=$(awk -v file="$FILE" '$1 == "SF:" && $2 == file {found=1; next} found && $1 == "LF:" {sum+=$2} found && $1 == "LH:" {cov+=$2} found && $1 == "end_of_record" {print cov+0, sum+0; exit} !found {next}' coverage/lcov.info 2>/dev/null)
+                   FILE_COVERED=$(echo "$FILE_TOTAL" | awk '{print $1}')
+                   FILE_LINES=$(echo "$FILE_TOTAL" | awk '{print $2}')
                    
-                   TOTAL_LINES=$((TOTAL_LINES + FILE_LINES))
-                   COVERED_LINES=$((COVERED_LINES + FILE_TOTAL))
+                   if [ -n "$FILE_LINES" ] && [ "$FILE_LINES" != "0" ]; then
+                     TOTAL_LINES=$((TOTAL_LINES + FILE_LINES))
+                     COVERED_LINES=$((COVERED_LINES + FILE_COVERED))
+                   fi
                  fi
                done
                
@@ -89,10 +92,10 @@ jobs:
                echo "No Rust files in diff"
                echo "diff_coverage=0.00" >> $GITHUB_OUTPUT
              fi
-          else
-             echo "No coverage report generated"
-             echo "diff_coverage=0.00" >> $GITHUB_OUTPUT
-           fi
+           else
+              echo "No coverage report generated"
+              echo "diff_coverage=0.00" >> $GITHUB_OUTPUT
+            fi
 
       - name: Get uncovered lines in diff
         id: uncovered_lines
@@ -107,32 +110,30 @@ jobs:
                UNCOVERED=""
                for FILE in $DIFF_FILES; do
                  if [ -f "$FILE" ]; then
-                   FILE_LCOV=$(grep -i -A1 "FNH.*$FILE" coverage/lcov.info 2>/dev/null || echo "")
-                   FILE_LH=$(echo "$FILE_LCOV" | grep -i '^LH:' | awk '{print $2}' || echo "0")
-                   FILE_LF=$(echo "$FILE_LCOV" | grep -i '^LF:' | awk '{print $2}' || echo "0")
-                  
-                  if [ -n "$FILE_LF" ] && [ "$FILE_LF" != "0" ]; then
-                    COVERED=$(echo "$FILE_LH" | tr -d '\n')
-                    TOTAL=$(echo "$FILE_LF" | tr -d '\n')
-                    UNCOVERED_NUM=$((TOTAL - COVERED))
-                    
-                    if [ "$UNCOVERED_NUM" -gt 0 ]; then
-                      if [ -n "$UNCOVERED" ]; then
-                        UNCOVERED="${UNCOVERED}\n"
-                      fi
-                      UNCOVERED="${UNCOVERED}${FILE}: ${UNCOVERED_NUM} uncovered lines"
-                    fi
-                  fi
-                fi
-              done
-              
-              echo "uncovered=${UNCOVERED}" >> $GITHUB_OUTPUT
-            else
-              echo "uncovered=" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "uncovered=" >> $GITHUB_OUTPUT
-          fi
+                   FILE_STATS=$(awk -v file="$FILE" '$1 == "SF:" && $2 == file {found=1; next} found && $1 == "LF:" {total=$2} found && $1 == "LH:" {covered=$2} found && $1 == "end_of_record" {print covered+0, total+0; exit} !found {next}' coverage/lcov.info 2>/dev/null)
+                   FILE_COVERED=$(echo "$FILE_STATS" | awk '{print $1}')
+                   FILE_TOTAL=$(echo "$FILE_STATS" | awk '{print $2}')
+                   
+                   if [ -n "$FILE_TOTAL" ] && [ "$FILE_TOTAL" != "0" ]; then
+                     UNCOVERED_NUM=$((FILE_TOTAL - FILE_COVERED))
+                     
+                     if [ "$UNCOVERED_NUM" -gt 0 ]; then
+                       if [ -n "$UNCOVERED" ]; then
+                         UNCOVERED="${UNCOVERED}\n"
+                       fi
+                       UNCOVERED="${UNCOVERED}${FILE}: ${UNCOVERED_NUM} uncovered lines"
+                     fi
+                   fi
+                 fi
+               done
+               
+               echo "uncovered=${UNCOVERED}" >> $GITHUB_OUTPUT
+             else
+               echo "uncovered=" >> $GITHUB_OUTPUT
+             fi
+           else
+             echo "uncovered=" >> $GITHUB_OUTPUT
+           fi
 
       - name: Comment coverage
         if: github.event_name == 'pull_request'
