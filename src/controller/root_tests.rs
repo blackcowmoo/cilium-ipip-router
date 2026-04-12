@@ -1,5 +1,5 @@
 use k8s_openapi::api::core::v1::Node;
-use kube::api::{ListParams, WatchEvent};
+use kube::api::{Bookmark, ListParams, WatchEvent};
 
 #[cfg(test)]
 mod tests {
@@ -94,12 +94,9 @@ mod tests {
         let _added = WatchEvent::Added(node.clone());
         let _modified = WatchEvent::Modified(node.clone());
         let _deleted = WatchEvent::Deleted(node);
-        let _bookmark = WatchEvent::Bookmark(k8s_openapi::api::core::v1::ObjectReference {
-            api_version: Some("v1".to_string()),
-            kind: Some("Node".to_string()),
-            name: Some("test".to_string()),
-            ..Default::default()
-        });
+      let _bookmark = WatchEvent::Bookmark(Bookmark {
+           resource_version: Some("12345".to_string()),
+       });
     }
 
     #[test]
