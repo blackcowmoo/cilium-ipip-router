@@ -64,7 +64,7 @@ pub async fn run() -> Controller {
     Controller::new(Controller::builder())
 }
 
-struct ControllerInner {}
+pub(in crate::controller) struct ControllerInner {}
 
 impl ControllerInner {
     pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
@@ -115,11 +115,11 @@ impl ControllerInner {
         Ok(())
     }
 
-    async fn update_route(node: Node) {
+    pub(in crate::controller) async fn update_route(node: Node) {
         log::info!("Applied: {}", node.name_any());
     }
 
-    async fn delete_route(node: Node) {
+    pub(in crate::controller) async fn delete_route(node: Node) {
         log::info!("Deleted: {}", node.name_any());
     }
 }

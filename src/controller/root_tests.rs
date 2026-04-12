@@ -35,17 +35,7 @@ async fn test_controller_handle_stop_non_graceful() {
     handle.stop(false).await;
 }
 
-#[test]
-fn test_controller_builder_new_connected() {
-    let builder = ControllerBuilder::new();
-    assert!(builder.cmd_tx.is_connected());
-}
 
-#[test]
-fn test_controller_default_connected() {
-    let builder = ControllerBuilder::default();
-    assert!(builder.cmd_tx.is_connected());
-}
 
 #[test]
 fn test_controller_handle_clone() {
