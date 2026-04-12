@@ -1,5 +1,7 @@
 use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
+use kube_core::watch::{Bookmark, BookmarkMeta};
+use std::collections::BTreeMap;
 
 #[cfg(test)]
 mod tests {
@@ -94,10 +96,16 @@ mod tests {
         let _added = WatchEvent::Added(node.clone());
         let _modified = WatchEvent::Modified(node.clone());
         let _deleted = WatchEvent::Deleted(node);
-        let _bookmark =
-            WatchEvent::Bookmark(k8s_openapi::apimachinery::pkg::apis::meta::v1::Bookmark {
-                resource_version: Some("12345".to_string()),
-            });
+         let _bookmark: WatchEvent<Node> = WatchEvent::Bookmark(Bookmark {
+            types: kube_core::metadata::TypeMeta {
+                api_version: "v1".to_string(),
+                kind: "Node".to_string(),
+            },
+            metadata: BookmarkMeta {
+                resource_version: "12345".to_string(),
+                annotations: BTreeMap::new(),
+            },
+        });
     }
 
     #[test]

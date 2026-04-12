@@ -475,6 +475,7 @@ dependencies = [
  "futures-ticker",
  "k8s-openapi",
  "kube",
+ "kube-core",
  "log",
  "log4rs",
  "mockall",
