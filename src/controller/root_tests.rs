@@ -96,7 +96,7 @@ mod tests {
         let _added = WatchEvent::Added(node.clone());
         let _modified = WatchEvent::Modified(node.clone());
         let _deleted = WatchEvent::Deleted(node);
-         let _bookmark: WatchEvent<Node> = WatchEvent::Bookmark(Bookmark {
+        let _bookmark: WatchEvent<Node> = WatchEvent::Bookmark(Bookmark {
             types: kube_core::metadata::TypeMeta {
                 api_version: "v1".to_string(),
                 kind: "Node".to_string(),
