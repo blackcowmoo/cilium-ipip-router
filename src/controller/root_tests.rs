@@ -32,10 +32,8 @@ async fn test_controller_handle_stop_graceful() {
 async fn test_controller_handle_stop_non_graceful() {
     let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
     let handle = ControllerHandle::new(tx);
-    handle.stop(false).await;
+handle.stop(false).await;
 }
-
-
 
 #[test]
 fn test_controller_handle_clone() {
