@@ -1,94 +1,21 @@
-use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus};
+use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
-use mockall::mock;
-
-mock! {
-    pub NodeApi {}
-
-    impl<'a> kube::api::Api<Node> for NodeApi {
-        type ListResult = WatchEvent<Node>;
-
-        fn list(&self, _opts: &ListParams) -> Result<Vec<Node>, kube::Error> {
-            Err(kube::Error::ApiError(kube::ErrorResponse {
-                status: "Error".to_string(),
-                code: 500,
-                reason: "Not Implemented".to_string(),
-            }))
-        }
-
-        fn watch(
-            &self,
-            _opts: &ListParams,
-            _resource_version: &str,
-        ) -> Result<
-            kube::runtime::watcher::Watcher<
-                std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<WatchEvent<Node>, kube::Error>>>>,
-            >,
-            kube::Error,
-        > {
-            Err(kube::Error::ApiError(kube::ErrorResponse {
-                status: "Error".to_string(),
-                code: 500,
-                reason: "Not Implemented".to_string(),
-            }))
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::controller::builder::ControllerBuilder;
     use crate::controller::handle::ControllerCommand;
-    use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus};
-    use kube::api::{ListParams, WatchEvent};
-    use mockall::mock;
-
-    mock! {
-        pub TestNodeApi {}
-
-        impl<'a> kube::api::Api<Node> for TestNodeApi {
-            fn list(&self, _opts: &ListParams) -> Result<Vec<Node>, kube::Error> {
-                Err(kube::Error::ApiError(kube::ErrorResponse {
-                    status: "Error".to_string(),
-                    code: 500,
-                    reason: "Test".to_string(),
-                }))
-            }
-
-            fn watch(
-                &self,
-                _opts: &ListParams,
-                _resource_version: &str,
-            ) -> Result<
-                kube::runtime::watcher::Watcher<
-                    std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<WatchEvent<Node>, kube::Error>>>>,
-                >,
-                kube::Error,
-            > {
-                Err(kube::Error::ApiError(kube::ErrorResponse {
-                    status: "Error".to_string(),
-                    code: 500,
-                    reason: "Test".to_string(),
-                }))
-            }
-        }
-    }
-
-    #[test]
-    fn test_mock_node_api_structure() {
-        let _mock = TestNodeApi::default();
-    }
 
     #[test]
     fn test_node_creation() {
         let node = Node {
             metadata: Default::default(),
-            spec: Some(NodeSpec {
+            spec: Some(k8s_openapi::api::core::v1::NodeSpec {
                 external_id: Some("test-node".to_string()),
                 ..Default::default()
             }),
-            status: Some(NodeStatus {
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
                 node_info: Some(k8s_openapi::api::core::v1::NodeSystemInfo {
                     kernel_version: "test-kernel".to_string(),
                     ..Default::default()
@@ -114,9 +41,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_controller_with_mock_api() {
-        let mock_api = TestNodeApi::default();
-        let _ = mock_api;
-
         let builder = ControllerBuilder::new();
         let controller = crate::controller::root::Controller::new(builder);
         let handle = controller.handle();
@@ -130,11 +54,11 @@ mod tests {
     fn test_node_status_fields() {
         let node = Node {
             metadata: Default::default(),
-            spec: Some(NodeSpec {
+            spec: Some(k8s_openapi::api::core::v1::NodeSpec {
                 external_id: Some("node-1".to_string()),
                 ..Default::default()
             }),
-            status: Some(NodeStatus {
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
                 node_info: Some(k8s_openapi::api::core::v1::NodeSystemInfo {
                     kernel_version: "5.15.0".to_string(),
                     ..Default::default()
@@ -180,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_node_spec_fields() {
-        let spec = NodeSpec {
+        let spec = k8s_openapi::api::core::v1::NodeSpec {
             external_id: Some("external-id".to_string()),
             pod_cidr: Some("10.0.0.0/24".to_string()),
             ..Default::default()
@@ -192,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_node_status_fields_full() {
-        let status = NodeStatus {
+        let status = k8s_openapi::api::core::v1::NodeStatus {
             node_info: Some(k8s_openapi::api::core::v1::NodeSystemInfo {
                 kernel_version: "5.15.0".to_string(),
                 os_image: "Ubuntu 22.04".to_string(),
