@@ -206,7 +206,10 @@ mod tests {
         let stop_non_graceful = ControllerCommand::Stop { graceful: false };
 
         matches!(stop_graceful, ControllerCommand::Stop { graceful: true });
-        matches!(stop_non_graceful, ControllerCommand::Stop { graceful: false });
+        matches!(
+            stop_non_graceful,
+            ControllerCommand::Stop { graceful: false }
+        );
     }
 
     #[test]
