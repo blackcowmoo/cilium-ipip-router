@@ -148,23 +148,23 @@ mod tests {
     #[test]
     fn test_controller_builder_default() {
         let builder = ControllerBuilder::default();
-        assert!(builder.cmd_tx.is_connected());
-        assert!(builder.cmd_rx.is_empty());
+        assert!(!builder.cmd_tx.is_closed());
+        assert_eq!(builder.cmd_rx.len(), 0);
     }
 
     #[test]
     fn test_controller_builder_new() {
         let builder = ControllerBuilder::new();
-        assert!(builder.cmd_tx.is_connected());
-        assert!(builder.cmd_rx.is_empty());
+        assert!(!builder.cmd_tx.is_closed());
+        assert_eq!(builder.cmd_rx.len(), 0);
     }
 
     #[test]
     fn test_controller_builder_clone_channel() {
         let builder = ControllerBuilder::new();
         let tx = builder.cmd_tx.clone();
-        let _rx = builder.cmd_rx.clone();
-        assert!(tx.is_connected());
+        let _rx = builder.cmd_rx;
+        assert!(!tx.is_closed());
     }
 
     #[tokio::test]
