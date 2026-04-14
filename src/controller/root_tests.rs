@@ -2,12 +2,13 @@ use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
+use tokio::sync::mpsc::unbounded_channel;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::controller::builder::ControllerBuilder;
-    use crate::controller::handle::ControllerCommand;
+    use crate::controller::handle::{ControllerCommand, ControllerHandle};
 
     #[test]
     fn test_node_creation() {
@@ -142,5 +143,92 @@ mod tests {
         use kube::api::ListParams;
         let lp = ListParams::timeout(ListParams::default(), 30);
         assert_eq!(lp.timeout, Some(30));
+    }
+
+    #[test]
+    fn test_controller_builder_default() {
+        let builder = ControllerBuilder::default();
+        assert!(!builder.cmd_tx.is_closed());
+        assert_eq!(builder.cmd_rx.len(), 0);
+    }
+
+    #[test]
+    fn test_controller_builder_new() {
+        let builder = ControllerBuilder::new();
+        assert!(!builder.cmd_tx.is_closed());
+        assert_eq!(builder.cmd_rx.len(), 0);
+    }
+
+    #[test]
+    fn test_controller_builder_clone_channel() {
+        let builder = ControllerBuilder::new();
+        let tx = builder.cmd_tx.clone();
+        let _rx = builder.cmd_rx;
+        assert!(!tx.is_closed());
+    }
+
+    #[tokio::test]
+    async fn test_controller_handle_new() {
+        let (tx, _rx) = unbounded_channel::<ControllerCommand>();
+        let handle = ControllerHandle::new(tx);
+        let _debug_str = format!("{:?}", handle);
+    }
+
+    #[tokio::test]
+    async fn test_controller_handle_stop_graceful() {
+        let (tx, mut rx) = unbounded_channel::<ControllerCommand>();
+        let handle = ControllerHandle::new(tx);
+
+        handle.stop(true).await;
+
+        let cmd = rx.recv().await.expect("Should receive command");
+        match cmd {
+            ControllerCommand::Stop { graceful } => assert!(graceful),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_controller_handle_stop_non_graceful() {
+        let (tx, mut rx) = unbounded_channel::<ControllerCommand>();
+        let handle = ControllerHandle::new(tx);
+
+        handle.stop(false).await;
+
+        let cmd = rx.recv().await.expect("Should receive command");
+        match cmd {
+            ControllerCommand::Stop { graceful } => assert!(!graceful),
+        }
+    }
+
+    #[test]
+    fn test_controller_command_stop_enum() {
+        let stop_graceful = ControllerCommand::Stop { graceful: true };
+        let stop_non_graceful = ControllerCommand::Stop { graceful: false };
+
+        matches!(stop_graceful, ControllerCommand::Stop { graceful: true });
+        matches!(
+            stop_non_graceful,
+            ControllerCommand::Stop { graceful: false }
+        );
+    }
+
+    #[test]
+    fn test_controller_handle_debug_impl() {
+        let (tx, _rx) = unbounded_channel::<ControllerCommand>();
+        let handle = ControllerHandle::new(tx);
+        let _debug_str = format!("{:?}", handle);
+    }
+
+    #[test]
+    fn test_controller_builder_multiple_commands() {
+        let builder = ControllerBuilder::new();
+
+        let cmd1 = ControllerCommand::Stop { graceful: true };
+        let cmd2 = ControllerCommand::Stop { graceful: false };
+
+        assert!(builder.cmd_tx.send(cmd1).is_ok());
+        assert!(builder.cmd_tx.send(cmd2).is_ok());
+
+        assert_eq!(builder.cmd_rx.len(), 2);
     }
 }
