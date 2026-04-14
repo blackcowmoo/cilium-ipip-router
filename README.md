@@ -1,0 +1,278 @@
+# Cilium IPIP Router
+
+A Kubernetes controller that manages IPIP routing for Cilium CNI by watching Node events in the cluster.
+
+## Overview
+
+This Rust-based controller monitors Kubernetes Nodes for changes and manages corresponding IPIP routes for Cilium network overlay. It uses the Kubernetes watch API to receive real-time updates and maintains routing tables accordingly.
+
+## Project Structure
+
+```
+/git/work/
+├── src/
+│   ├── main.rs              # Application entry point with Actix web server
+│   ├── lib.rs               # Library module declarations
+│   └── controller/
+│       ├── mod.rs           # Controller module exports
+│       ├── root.rs          # Main Controller implementation
+│       ├── root_tests.rs    # Unit tests
+│       ├── builder.rs       # ControllerBuilder pattern
+│       └── handle.rs        # ControllerHandle for lifecycle management
+├── resources/
+│   └── log4rs.yaml          # Logging configuration
+├── Dockerfile               # Multi-stage Docker build
+├── Cargo.toml               # Rust dependencies
+├── Cargo.lock               # Dependency lock file
+└── .github/
+    └── workflows/           # CI/CD pipelines
+        ├── deploy.yaml      # Docker image deployment
+        ├── test.yaml        # Test execution
+        ├── coverage.yml     # Coverage reporting
+        └── docker.yaml      # Docker build validation
+```
+
+## Project Specifications
+
+### Core Functionality
+
+- **Kubernetes Integration**: Watches Node resources using `kube` crate
+- **IPIP Routing**: Manages IP-in-IP tunnel routes for Cilium CNI
+- **Real-time Monitoring**: Uses Kubernetes watch API for event-driven updates
+- **Graceful Shutdown**: Handles SIGTERM and SIGINT signals for clean termination
+
+### Technical Stack
+
+| Component | Technology |
+|-----------|------------|
+| Runtime | Tokio (async runtime) |
+| Web Framework | Actix Web 4.9.0 |
+| Kubernetes Client | kube 0.95.0 |
+| Kubernetes API | k8s-openapi 0.23.0 |
+| Logging | log + log4rs 1.3.0 |
+| Metrics | prometheus-client 0.22.3 |
+| Error Handling | anyhow 1.0.89 |
+
+### Key Dependencies
+
+- `actix-web`: HTTP server framework
+- `kube`: Kubernetes client library
+- `k8s-openapi`: Kubernetes OpenAPI specifications
+- `tokio`: Async runtime with signal handling
+- `log4rs`: Configurable logging system
+- `mockall`: Unit test mocking framework
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Kubernetes Cluster                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
+│  │  Node 1  │  │  Node 2  │  │  Node N  │                  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
+│       │             │             │                         │
+│       └─────────────┴─────────────┘                         │
+│                     │                                       │
+│              ┌──────▼───────┐                               │
+│              │   API Server │                               │
+│              └──────┬───────┘                               │
+└─────────────────────┼───────────────────────────────────────┘
+                      │ Watch API
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│              Cilium IPIP Router Controller                  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Actix Web (port 9090)                              │   │
+│  │  - /health endpoint                                 │   │
+│  └──────────────┬──────────────────────────────────────┘   │
+│                 │                                          │
+│  ┌──────────────▼──────────────────────────────────────┐   │
+│  │  Controller (Node Watcher)                          │   │
+│  │  - Watches Node add/modify/delete events            │   │
+│  │  - Manages IPIP routes for Cilium                   │   │
+│  └──────────────┬──────────────────────────────────────┘   │
+│                 │                                          │
+│  ┌──────────────▼──────────────────────────────────────┐   │
+│  │  ControllerHandle (Command Interface)               │   │
+│  │  - Stop commands (graceful/non-graceful)            │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## How to Use
+
+### Prerequisites
+
+- Rust 1.82.0 or later
+- Kubernetes cluster access (kubeconfig)
+- Docker (for containerized deployment)
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd cilium-ipip-router
+
+# Build in release mode
+cargo build --release
+
+# Or build for specific target
+cargo build --release --target x86_64-unknown-linux-gnu
+```
+
+### Running Locally
+
+```bash
+# Ensure kubeconfig is configured
+export KUBECONFIG=/path/to/kubeconfig
+
+# Run the application
+cargo run --target x86_64-unknown-linux-gnu
+```
+
+The application will:
+1. Initialize logging via `resources/log4rs.yaml`
+2. Start the Kubernetes controller to watch Nodes
+3. Start HTTP server on `0.0.0.0:9090`
+4. Expose `/health` endpoint for health checks
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t cilium-ipip-router:latest .
+
+# Run container
+docker run -it --rm \
+  --name cilium-router \
+  cilium-ipip-router:latest
+```
+
+### Kubernetes Deployment
+
+The controller can be deployed as a Pod in Kubernetes with appropriate RBAC permissions to watch Nodes.
+
+## Configuration
+
+### Logging
+
+Configure logging in `resources/log4rs.yaml`:
+- Default level: `info`
+- Output: stdout
+- Scan interval: 30 seconds for config changes
+
+### Environment Variables
+
+None required. The application uses:
+- Default kubeconfig discovery (in-cluster or ~/.kube/config)
+- Hardcoded server binding: `0.0.0.0:9090`
+
+## API Endpoints
+
+### Health Check
+
+```
+GET /health
+```
+
+Response:
+```json
+"healthy"
+```
+
+## Code Generation Guidelines
+
+### Module Structure
+
+All code follows this organization:
+
+```
+src/
+├── main.rs           # Single entry point, no modules
+├── lib.rs            # Module re-exports only
+└── controller/       # Domain-specific logic
+    ├── mod.rs        # Module declarations and re-exports
+    ├── builder.rs    # Builder pattern implementations
+    ├── handle.rs     # Handle/Command pattern implementations
+    └── root.rs       # Core business logic
+```
+
+### Naming Conventions
+
+- **Modules**: snake_case (`controller`, `builder`, `handle`)
+- **Structs**: PascalCase (`Controller`, `ControllerBuilder`, `ControllerHandle`)
+- **Enums**: PascalCase with `EnumName` prefix for commands (`ControllerCommand`)
+- **Functions**: snake_case (`run`, `watch`, `update_route`)
+- **Constants**: SCREAMING_SNAKE_CASE
+
+### Error Handling
+
+- Use `anyhow::Result` for application errors
+- Use `std::io::Result` for Future implementations
+- Log errors with `log::error!` before returning
+- Avoid `unwrap()` in production code
+
+### Async Patterns
+
+- Use `#[tokio::main]` for async entry points
+- Use `BoxFuture<'static, io::Result<()>>` for long-running futures
+- Implement `Future` trait directly for controller types
+- Use `tokio::select!` for concurrent event handling
+
+### Testing Guidelines
+
+1. **Test Location**: Place tests in same file as code (`root_tests.rs`)
+2. **Async Tests**: Use `#[tokio::test]` attribute
+3. **Mocking**: Use `mockall` for external dependencies
+4. **Isolation**: Test without real Kubernetes API when possible
+
+## Development Guidelines
+
+### Code Style
+
+- Run formatter before commit: `cargo fmt --all`
+- Run linter: `cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings`
+- Check for warnings: Enable `-D warnings` in CI
+
+### Commit Policy
+
+- Author must be configured (not `opencode`)
+- Use descriptive commit messages
+- Follow conventional commits format recommended
+
+### CI/CD Pipeline
+
+- **Test Workflow**: Runs on pull requests and pushes to main
+- **Deploy Workflow**: Pushes Docker images on tags and main branch
+- **Coverage**: Generates coverage reports for each build
+- **Docker**: Validates Docker build process
+
+## Monitoring
+
+The application exposes:
+- Prometheus metrics endpoint (via `prometheus-client`)
+- Health check endpoint at `/health`
+- Structured logging via `log4rs`
+
+## License
+
+MIT
+
+## Documentation
+
+For more detailed information, see the [documentation](docs/) directory:
+
+- [Architecture Overview](docs/architecture.md)
+- [Developer Guide](docs/developer-guide.md)
+- [Deployment Guide](docs/deployment.md)
+- [API Reference](docs/api-reference.md)
+- [Testing Guide](docs/testing.md)
+- [Code Generation Guidelines](docs/code-generation.md)
+
+## Contributing
+
+1. Follow existing code patterns and structure
+2. Run `cargo fmt` and `cargo clippy` before committing
+3. Add tests for new functionality
+4. Update documentation as needed
