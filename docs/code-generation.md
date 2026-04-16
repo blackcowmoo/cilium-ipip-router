@@ -29,6 +29,8 @@ pub struct CiliumEndpointSpec {
 }
 ```
 
+**Note**: For Cilium 1.18+ compatibility, ensure CRD definitions use `apiextensions.k8s.io/v1` instead of the deprecated `apiextensions.k8s.io/v1beta1`.
+
 ### 2. Code Generation Commands
 
 ```bash

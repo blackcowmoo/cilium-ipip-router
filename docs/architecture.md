@@ -58,9 +58,12 @@ Node Change (K8s API)
 - **Async Runtime**: Tokio multi-threaded runtime
 - **Event Handling**: Watch stream with tick-based command polling
 - **Shutdown**: Coordinated shutdown using broadcast channels
+- **Kubernetes API**: k8s-openapi 0.24.0 with latest API versions
+- **Cilium Support**: Updated for Cilium 1.18+ compatibility
 
 ## Error Handling
 
 - Watch stream failures trigger retry logic
 - Signal handling ensures graceful shutdown
 - All errors logged before propagation
+- Compatible with Kubernetes 1.34 and Cilium 1.18+

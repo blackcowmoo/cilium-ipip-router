@@ -2,6 +2,8 @@
 
 Welcome to the Cilium IPIP Router documentation. This project implements a Kubernetes controller for managing IPIP routing for Cilium CNI.
 
+**Version**: Kubernetes 1.34 / Cilium 1.18+
+
 ## Documentation Structure
 
 ### Core Documentation
@@ -52,6 +54,8 @@ docs/                    # This documentation
 - **IPIP Routing**: Manages IP-in-IP tunnels for Cilium CNI
 - **Async Runtime**: Tokio-based async processing
 - **Graceful Shutdown**: Signal handling for clean termination
+- **Kubernetes Version**: Compatible with Kubernetes 1.34
+- **Cilium Version**: Compatible with Cilium 1.18+
 
 ## Contributing
 

@@ -4,10 +4,10 @@ This guide covers deploying the Cilium IPIP Router in various environments.
 
 ## Prerequisites
 
-- Kubernetes cluster (v1.20+)
+- Kubernetes cluster (v1.34+)
 - kubectl configured with cluster admin access
 - Docker or containerd runtime
-- Network overlay: Cilium CNI
+- Network overlay: Cilium CNI v1.18+
 
 ## Deployment Methods
 
@@ -87,6 +87,7 @@ metadata:
   namespace: kube-system
 
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -97,6 +98,7 @@ rules:
   verbs: ["get", "watch", "list"]
 
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

@@ -37,7 +37,9 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 ### Core Functionality
 
 - **Kubernetes Integration**: Watches Node resources using `kube` crate
+- **Cilium Support**: Updated for Cilium 1.18+ compatibility
 - **IPIP Routing**: Manages IP-in-IP tunnel routes for Cilium CNI
+- **Kubernetes Version**: Compatible with Kubernetes 1.34
 - **Real-time Monitoring**: Uses Kubernetes watch API for event-driven updates
 - **Graceful Shutdown**: Handles SIGTERM and SIGINT signals for clean termination
 
@@ -47,8 +49,8 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 |-----------|------------|
 | Runtime | Tokio (async runtime) |
 | Web Framework | Actix Web 4.9.0 |
-| Kubernetes Client | kube 0.95.0 |
-| Kubernetes API | k8s-openapi 0.23.0 |
+| Kubernetes Client | kube 0.96.0 |
+| Kubernetes API | k8s-openapi 0.24.0 |
 | Logging | log + log4rs 1.3.0 |
 | Metrics | prometheus-client 0.22.3 |
 | Error Handling | anyhow 1.0.89 |

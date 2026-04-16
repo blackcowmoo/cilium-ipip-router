@@ -9,6 +9,8 @@ This guide covers development workflows, code patterns, and best practices for c
 - Rust 1.82.0 or later
 - kubeconfig with cluster access
 - Docker (optional, for containerized builds)
+- Kubernetes cluster (v1.34+)
+- Cilium CNI v1.18+
 
 ### Setting Up Development Environment
 
