@@ -11,14 +11,8 @@ This guide covers deploying the Cilium IPIP Router in various environments.
 
 ## Deployment Methods
 
-### Method 0: Deployment vs DaemonSet
+### Method 0: DaemonSet Only
 
-**Use Deployment when:**
-- Running a specific number of replicas for high availability
-- Pods don't need to run on every node
-- Centralized routing functionality is sufficient
-
-**Use DaemonSet when:**
 - Need the router on every node for local IPIP tunnel termination
 - Node-specific network configuration is required
 - Cilium is running as a DaemonSet on each node
@@ -37,49 +31,7 @@ docker run -d \
   cilium-ipip-router:latest
 ```
 
-### Method 2: Kubernetes Deployment
-
-Create `deployment.yaml`:
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cilium-ipip-router
-  namespace: kube-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: cilium-ipip-router
-  template:
-    metadata:
-      labels:
-        app: cilium-ipip-router
-    spec:
-      serviceAccountName: cilium-ipip-router
-      containers:
-      - name: router
-        image: ghcr.io/blackcowmoo/cilium-ipip-router:latest
-        imagePullPolicy: Always
-        securityContext:
-          runAsNonRoot: true
-        env:
-        - name: RUST_LOG
-          value: info
-        ports:
-        - containerPort: 9090
-          name: http
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "100m"
-          limits:
-            memory: "128Mi"
-            cpu: "200m"
-```
-
-### Method 3: Kubernetes DaemonSet
+### Method 2: Kubernetes DaemonSet
 
 For deploying on every node in the cluster, use a DaemonSet:
 
@@ -149,7 +101,7 @@ For production use, consider deploying as a Kubernetes operator with:
 
 ## Kubernetes RBAC
 
-**For Deployment and DaemonSet:**
+**For DaemonSet:**
 
 Create `rbac.yaml`:
 
@@ -254,11 +206,6 @@ scrape_configs:
 
 ### Horizontal Scaling
 
-**For Deployment:**
-- Deploy multiple replicas for high availability
-- Use pod anti-affinity to distribute across nodes
-- Configure readiness/liveness probes
-
 **For DaemonSet:**
 - Automatically deploys one pod per node
 - Scale by adding/removing nodes from cluster
@@ -326,16 +273,6 @@ kubectl logs -f -n kube-system -l app=cilium-ipip-router
 
 ### Updates
 
-**For Deployment:**
-
-```bash
-# Update deployment
-kubectl rollout update deployment/cilium-ipip-router -n kube-system
-
-# Monitor rollout
-kubectl rollout status deployment/cilium-ipip-router -n kube-system
-```
-
 **For DaemonSet:**
 
 ```bash
@@ -354,15 +291,6 @@ kubectl rollout history daemonset/cilium-ipip-router -n kube-system
 No persistent state required. Controller rebuilds state from Kubernetes API on restart.
 
 ### Rollback
-
-**For Deployment:**
-
-```bash
-# Rollback to previous version
-kubectl rollout undo deployment/cilium-ipip-router -n kube-system
-```
-
-**For DaemonSet:**
 
 ```bash
 # Rollback to previous version
