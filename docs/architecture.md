@@ -4,21 +4,21 @@ This document describes the high-level architecture of the Cilium IPIP Router sy
 
 ## Components
 
-### Controller
+### Node-local IPIP Router
 
-The core component that watches Kubernetes Node resources and manages IPIP routing.
+Each router instance operates independently on its assigned node to manage IPIP tunnel routes using kernel routing.
 
 **Responsibilities:**
-- Watch Node add/modify/delete events via Kubernetes API
-- Process node changes and update IPIP routes
+- Create and manage IPIP tunnels for local traffic routing
+- Update kernel routing tables for Cilium CNI overlay
 - Handle graceful shutdown sequences
+- Manage node-local network configuration
 
 **Implementation:**
-- `src/controller/root.rs`: Main controller logic
-- `src/controller/builder.rs`: Builder pattern for construction
-- `src/controller/handle.rs`: Command interface for lifecycle management
+- `src/main.rs`: Main application entry point
+- `src/lib.rs`: Library module structure
 
-### HTTP Server
+## HTTP Server
 
 Lightweight web server for health checks and observability.
 
@@ -44,26 +44,26 @@ Centralized logging configuration.
 ## Data Flow
 
 ```
-Node Change (K8s API)
-         ↓
-  Watch Stream
-         ↓
-  Controller Logic
-         ↓
-  IPIP Route Update
+Node Startup
+      ↓
+Initialize Router
+      ↓
+Create IPIP Tunnel
+      ↓
+Update Kernel Routes
 ```
 
 ## Concurrency Model
 
 - **Async Runtime**: Tokio multi-threaded runtime
-- **Event Handling**: Watch stream with tick-based command polling
+- **Event Handling**: Local event processing for route updates
 - **Shutdown**: Coordinated shutdown using broadcast channels
-- **Kubernetes API**: k8s-openapi 0.24.0 with latest API versions
+- **Kernel Routing**: Direct manipulation of kernel routing tables
 - **Cilium Support**: Updated for Cilium 1.18+ compatibility
 
 ## Error Handling
 
-- Watch stream failures trigger retry logic
+- Route update failures trigger retry logic
 - Signal handling ensures graceful shutdown
 - All errors logged before propagation
 - Compatible with Kubernetes 1.34 and Cilium 1.18+

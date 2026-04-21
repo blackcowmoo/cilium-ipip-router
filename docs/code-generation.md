@@ -6,7 +6,6 @@ This document outlines the guidelines and best practices for code generation in 
 
 Code generation is used for:
 
-- Kubernetes CRD definitions
 - API client code
 - Serialization/deserialization
 - Test fixtures
@@ -15,7 +14,7 @@ Code generation is used for:
 
 ### 1. Use Kubernetes Code Generators
 
-For CRD definitions, use `kube-derive`:
+For Kubernetes API clients, use `kube-derive`:
 
 ```rust
 use kube::CustomResource;
@@ -34,9 +33,6 @@ pub struct CiliumEndpointSpec {
 ### 2. Code Generation Commands
 
 ```bash
-# Generate Kubernetes API clients
-cargo run --bin generate
-
 # Update dependencies
 cargo update
 
@@ -44,48 +40,72 @@ cargo update
 cargo build --target x86_64-unknown-linux-gnu
 ```
 
-### 3. Generated Code Patterns
+### 3. Code Generation Patterns
 
-#### Builder Pattern
+#### Router Pattern
 
-Always use builder pattern for complex objects:
+Each router instance manages IPIP tunnels using kernel routing:
 
 ```rust
-pub struct ControllerBuilder {
-    pub cmd_tx: UnboundedSender<ControllerCommand>,
-    pub cmd_rx: UnboundedReceiver<ControllerCommand>,
+pub struct Router {
+    handle: RouterHandle,
+    fut: BoxFuture<'static, io::Result<()>>,
 }
 
-impl Default for ControllerBuilder {
+impl Router {
+    pub fn builder() -> RouterBuilder {
+        RouterBuilder::default()
+    }
+    
+    pub fn new(builder: RouterBuilder) -> Self {
+        Router {
+            handle: RouterHandle::new(builder.cmd_tx.clone()),
+            fut: Box::pin(RouterInner::run(builder)),
+        }
+    }
+    
+    pub fn handle(&self) -> RouterHandle {
+        self.handle.clone()
+    }
+}
+```
+
+#### RouterBuilder Pattern
+
+```rust
+pub struct RouterBuilder {
+    pub cmd_tx: UnboundedSender<RouterCommand>,
+    pub cmd_rx: UnboundedReceiver<RouterCommand>,
+}
+
+impl Default for RouterBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ControllerBuilder {
+impl RouterBuilder {
     pub fn new() -> Self {
         let (cmd_tx, cmd_rx) = unbounded_channel();
-        ControllerBuilder { cmd_tx, cmd_rx }
+        RouterBuilder { cmd_tx, cmd_rx }
     }
 }
 ```
 
-#### Handle Pattern
-
-Use handle pattern for lifecycle management:
+#### RouterHandle Pattern
 
 ```rust
-pub struct ControllerHandle {
-    cmd_tx: UnboundedSender<ControllerCommand>,
+pub struct RouterHandle {
+    cmd_tx: UnboundedSender<RouterCommand>,
 }
 
-impl ControllerHandle {
-    pub fn new(cmd_tx: UnboundedSender<ControllerCommand>) -> Self {
-        ControllerHandle { cmd_tx }
+impl RouterHandle {
+    pub fn new(cmd_tx: UnboundedSender<RouterCommand>) -> Self {
+        RouterHandle { cmd_tx }
     }
     
     pub async fn stop(&self, graceful: bool) {
-        let _ = self.cmd_tx.send(ControllerCommand::Stop { graceful });
+        let _ = self.cmd_tx.send(RouterCommand::Stop { graceful });
     }
 }
 ```
@@ -112,8 +132,8 @@ impl ControllerHandle {
 
 ```rust
 #[tokio::test]
-async fn test_generated_builder() {
-    let builder = ControllerBuilder::new();
+async fn test_generated_router_builder() {
+    let builder = RouterBuilder::new();
     assert!(builder.cmd_tx.is_some());
     assert!(builder.cmd_rx.is_some());
 }
@@ -123,10 +143,9 @@ async fn test_generated_builder() {
 
 1. Define data structures
 2. Add derive macros
-3. Generate code
-4. Format with `cargo fmt`
-5. Lint with `cargo clippy`
-6. Test with `cargo test`
+3. Format with `cargo fmt`
+4. Lint with `cargo clippy`
+5. Test with `cargo test`
 
 ### 7. Versioning
 
@@ -140,35 +159,35 @@ async fn test_generated_builder() {
 - Add examples for complex patterns
 - Include usage examples
 
-## Example: Generating a New Controller
+## Example: Creating a New Component
 
 ```rust
-// 1. Define the controller struct
-pub struct MyController {
-    handle: ControllerHandle,
+// 1. Define the router struct
+pub struct MyRouter {
+    handle: RouterHandle,
     fut: BoxFuture<'static, io::Result<()>>,
 }
 
 // 2. Implement builder
-pub struct MyControllerBuilder {
-    pub cmd_tx: UnboundedSender<MyControllerCommand>,
-    pub cmd_rx: UnboundedReceiver<MyControllerCommand>,
+pub struct MyRouterBuilder {
+    pub cmd_tx: UnboundedSender<RouterCommand>,
+    pub cmd_rx: UnboundedReceiver<RouterCommand>,
 }
 
 // 3. Implement handle
-pub struct MyControllerHandle {
-    cmd_tx: UnboundedSender<MyControllerCommand>,
+pub struct MyRouterHandle {
+    cmd_tx: UnboundedSender<RouterCommand>,
 }
 
-// 4. Implement controller logic
-impl MyController {
-    pub fn builder() -> MyControllerBuilder {
-        MyControllerBuilder::default()
+// 4. Implement router logic
+impl MyRouter {
+    pub fn builder() -> MyRouterBuilder {
+        MyRouterBuilder::default()
     }
 }
 
 // 5. Implement Future trait
-impl Future for MyController {
+impl Future for MyRouter {
     type Output = io::Result<()>;
     
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -179,20 +198,16 @@ impl Future for MyController {
 
 ## Common Patterns
 
-### Watch Pattern
+### Router Run Pattern
 
 ```rust
-async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
-    let client = Client::try_default().await?;
-    let nodes: Api<Node> = Api::all(client);
-    
-    let mut stream = nodes.watch(&lp, "0").await?.boxed();
+async fn run(mut builder: RouterBuilder) -> io::Result<()> {
+    // Initialize IPIP tunnel
+    // Update kernel routes
+    // Start HTTP server
     
     loop {
         tokio::select! {
-            Ok(Some(event)) = stream.try_next() => {
-                // Handle event
-            }
             _ = tick.tick() => {
                 // Handle commands
             }
@@ -221,7 +236,7 @@ tokio::select! {
 
 ## Maintenance
 
-### Updating Generators
+### Updating Code
 
 1. Check for new versions
 2. Update dependencies

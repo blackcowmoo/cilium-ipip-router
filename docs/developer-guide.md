@@ -32,24 +32,26 @@ cargo build
 
 ```
 src/
-├── main.rs           # Entry point, no modules
+├── main.rs           # Entry point
 ├── lib.rs            # Module declarations only
-└── controller/       # Business logic
+└── controller/       # Domain logic (legacy)
     ├── mod.rs        # Module exports
-    ├── builder.rs    # Builder pattern
-    ├── handle.rs     # Handle pattern
-    └── root.rs       # Core logic
+    ├── builder.rs    # Builder pattern (legacy)
+    ├── handle.rs     # Handle pattern (legacy)
+    └── root.rs       # Core logic (legacy)
 ```
 
 ### Naming Conventions
 
 | Pattern | Example |
 |---------|---------|
-| Modules | `controller`, `builder`, `handle` |
-| Structs | `Controller`, `ControllerBuilder` |
-| Enums | `ControllerCommand` |
-| Functions | `run()`, `watch()`, `update_route()` |
+| Modules | `main`, `lib` |
+| Structs | `Router`, `RouterBuilder` |
+| Enums | `RouterCommand` |
+| Functions | `run()`, `setup_routes()`, `create_tunnel()` |
 | Constants | `MAX_RETRIES` |
+
+Note: Legacy controller naming conventions are shown for reference but should not be used for new code.
 
 ## Development Workflows
 
@@ -128,9 +130,9 @@ tokio::select! {
 ```rust
 // Use #[tokio::test] for async tests
 #[tokio::test]
-async fn test_controller_builder() {
-    let builder = ControllerBuilder::new();
-    assert!(builder.cmd_tx.is_some());
+async fn test_router_setup() {
+    // Test router initialization
+    assert!(true); // Replace with actual tests
 }
 
 // Mock external dependencies
@@ -138,7 +140,7 @@ async fn test_controller_builder() {
 use mockall::automock;
 
 #[automock]
-pub trait ControllerInterface {
+pub trait RouterInterface {
     fn run(&self) -> Result<(), anyhow::Error>;
 }
 ```
@@ -151,8 +153,8 @@ Follow conventional commits:
 - `feat: Add new routing feature`
 - `fix: Handle node deletion errors`
 - `docs: Update README`
-- `test: Add controller tests`
-- `refactor: Simplify watch loop`
+- `test: Add router tests`
+- `refactor: Simplify route setup`
 
 ### Branch Strategy
 
@@ -196,10 +198,12 @@ gdb target/x86_64-unknown-linux-gnu/debug/router
 - Limit watch stream buffer sizes
 - Graceful shutdown with timeout (30 seconds)
 - Avoid blocking operations in async context
+- Kernel routing operations should be non-blocking
 
 ## Security Guidelines
 
 - Never hardcode secrets (use environment variables)
-- Validate all Kubernetes API responses
+- Validate all node configuration
 - Handle errors before they propagate
 - Review dependencies for vulnerabilities
+- Ensure privileged operations are minimal and secure

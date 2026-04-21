@@ -1,10 +1,10 @@
 # Cilium IPIP Router
 
-A Kubernetes controller that manages IPIP routing for Cilium CNI by watching Node events in the cluster.
+A node-local router that manages IPIP routing for Cilium CNI using kernel routing on each node.
 
 ## Overview
 
-This Rust-based controller monitors Kubernetes Nodes for changes and manages corresponding IPIP routes for Cilium network overlay. It uses the Kubernetes watch API to receive real-time updates and maintains routing tables accordingly.
+This Rust-based router creates and manages IPIP tunnels for Cilium network overlay on each node. It uses direct kernel routing to manage traffic without a central controller. Each router instance operates independently on its assigned node.
 
 ## Project Structure
 
@@ -14,11 +14,11 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 │   ├── main.rs              # Application entry point with Actix web server
 │   ├── lib.rs               # Library module declarations
 │   └── controller/
-│       ├── mod.rs           # Controller module exports
-│       ├── root.rs          # Main Controller implementation
+│       ├── mod.rs           # Controller module exports (legacy)
+│       ├── root.rs          # Legacy controller implementation (pending removal)
 │       ├── root_tests.rs    # Unit tests
-│       ├── builder.rs       # ControllerBuilder pattern
-│       └── handle.rs        # ControllerHandle for lifecycle management
+│       ├── builder.rs       # Builder pattern (legacy)
+│       └── handle.rs        # Handle pattern (legacy)
 ├── resources/
 │   └── log4rs.yaml          # Logging configuration
 ├── Dockerfile               # Multi-stage Docker build
@@ -36,11 +36,11 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 
 ### Core Functionality
 
-- **Kubernetes Integration**: Watches Node resources using `kube` crate
+- **Node-local IPIP Routing**: Creates and manages IPIP tunnels using kernel routing on each node
 - **Cilium Support**: Updated for Cilium 1.18+ compatibility
-- **IPIP Routing**: Manages IP-in-IP tunnel routes for Cilium CNI
+- **Kernel Routing**: Direct manipulation of kernel routing tables for tunnel traffic
 - **Kubernetes Version**: Compatible with Kubernetes 1.34
-- **Real-time Monitoring**: Uses Kubernetes watch API for event-driven updates
+- **Node-local Monitoring**: Each instance manages only its assigned node's routes
 - **Graceful Shutdown**: Handles SIGTERM and SIGINT signals for clean termination
 
 ### Technical Stack
@@ -49,8 +49,8 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 |-----------|------------|
 | Runtime | Tokio (async runtime) |
 | Web Framework | Actix Web 4.9.0 |
-| Kubernetes Client | kube 0.96.0 |
-| Kubernetes API | k8s-openapi 0.24.0 |
+| Kubernetes Client | kube 0.96.0 (for node metadata) |
+| Kubernetes API | k8s-openapi 0.24.0 (for node metadata) |
 | Logging | log + log4rs 1.3.0 |
 | Metrics | prometheus-client 0.22.3 |
 | Error Handling | anyhow 1.0.89 |
@@ -58,8 +58,8 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 ### Key Dependencies
 
 - `actix-web`: HTTP server framework
-- `kube`: Kubernetes client library
-- `k8s-openapi`: Kubernetes OpenAPI specifications
+- `kube`: Kubernetes client library (for node metadata retrieval)
+- `k8s-openapi`: Kubernetes OpenAPI specifications (for node metadata)
 - `tokio`: Async runtime with signal handling
 - `log4rs`: Configurable logging system
 - `mockall`: Unit test mocking framework
@@ -73,31 +73,17 @@ This Rust-based controller monitors Kubernetes Nodes for changes and manages cor
 │  │  Node 1  │  │  Node 2  │  │  Node N  │                  │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
 │       │             │             │                         │
-│       └─────────────┴─────────────┘                         │
-│                     │                                       │
-│              ┌──────▼───────┐                               │
-│              │   API Server │                               │
-│              └──────┬───────┘                               │
-└─────────────────────┼───────────────────────────────────────┘
-                      │ Watch API
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│              Cilium IPIP Router Controller                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Actix Web (port 9090)                              │   │
-│  │  - /health endpoint                                 │   │
-│  └──────────────┬──────────────────────────────────────┘   │
-│                 │                                          │
-│  ┌──────────────▼──────────────────────────────────────┐   │
-│  │  Controller (Node Watcher)                          │   │
-│  │  - Watches Node add/modify/delete events            │   │
-│  │  - Manages IPIP routes for Cilium                   │   │
-│  └──────────────┬──────────────────────────────────────┘   │
-│                 │                                          │
-│  ┌──────────────▼──────────────────────────────────────┐   │
-│  │  ControllerHandle (Command Interface)               │   │
-│  │  - Stop commands (graceful/non-graceful)            │   │
-│  └──────────────────────────────────────────────────────┘   │
+│  ┌────▼─────┐  ┌────▼─────┐  ┌────▼─────┐                 │
+│  │  Router  │  │  Router  │  │  Router  │                 │
+│  │  - Local │  │  - Local │  │  - Local │                 │
+│  │  IPIP    │  │  IPIP    │  │  IPIP    │                 │
+│  │  Tunnel  │  │  Tunnel  │  │  Tunnel  │                 │
+│  │  Kernel  │  │  Kernel  │  │  Kernel  │                 │
+│  │  Routes  │  │  Routes  │  │  Routes  │                 │
+│  └──────────┘  └──────────┘  └──────────┘                 │
+│                                                             │
+│  Each router manages only its node's IPIP routes via      │
+│  direct kernel routing - no central controller.            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -135,9 +121,10 @@ cargo run --target x86_64-unknown-linux-gnu
 
 The application will:
 1. Initialize logging via `resources/log4rs.yaml`
-2. Start the Kubernetes controller to watch Nodes
-3. Start HTTP server on `0.0.0.0:9090`
-4. Expose `/health` endpoint for health checks
+2. Create IPIP tunnel for local node
+3. Update kernel routing tables
+4. Start HTTP server on `0.0.0.0:9090`
+5. Expose `/health` endpoint for health checks
 
 ### Docker Deployment
 
@@ -153,7 +140,7 @@ docker run -it --rm \
 
 ### Kubernetes Deployment
 
-The controller can be deployed as a Pod in Kubernetes with appropriate RBAC permissions to watch Nodes.
+The router is deployed as a DaemonSet to ensure each node has its own IPIP routing instance. Each instance manages routes for its assigned node using kernel routing.
 
 ## Configuration
 

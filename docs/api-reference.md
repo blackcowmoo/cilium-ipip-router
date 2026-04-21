@@ -20,51 +20,46 @@ curl http://localhost:9090/health
 # Output: "healthy"
 ```
 
-## Controller API
+## Router API
 
-### ControllerBuilder
+### Router
 
-Constructs controller instances with default or custom configuration.
+Main router implementation that manages IPIP tunnels using kernel routing.
 
 ```rust
-let builder = ControllerBuilder::new();
-let controller = Controller::new(builder);
+let router = Router::builder().run().await;
+```
+
+**Methods:**
+- `builder()` - Get router builder
+- `new(builder)` - Create router from builder
+- `handle()` - Get router handle for commands
+
+### RouterBuilder
+
+Constructs router instances with default or custom configuration.
+
+```rust
+let builder = RouterBuilder::new();
+let router = Router::new(builder);
 ```
 
 **Methods:**
 - `new()` - Create new builder instance
 - `default()` - Default builder with standard configuration
 
-### ControllerHandle
+### RouterHandle
 
-Interface for controlling controller lifecycle.
+Interface for controlling router lifecycle.
 
 ```rust
-let handle = controller.handle();
+let handle = router.handle();
 handle.stop(false).await;  // Non-graceful stop
 handle.stop(true).await;   // Graceful stop
 ```
 
 **Methods:**
-- `stop(graceful: bool)` - Stop controller execution
-
-### Controller
-
-Main controller implementation that watches Kubernetes Nodes.
-
-```rust
-let controller = Controller::builder().run().await;
-```
-
-**Methods:**
-- `builder()` - Get controller builder
-- `new(builder)` - Create controller from builder
-- `handle()` - Get controller handle for commands
-
-**Lifecycle Events:**
-- `Added` - Node created, routes updated
-- `Modified` - Node changed, routes updated
-- `Deleted` - Node removed, routes cleaned up
+- `stop(graceful: bool)` - Stop router execution
 
 ## Error Types
 
@@ -81,7 +76,7 @@ pub type Result<T> = std::result::Result<T, anyhow::Error>;
 Uses `std::io::Error` for Future implementations.
 
 ```rust
-impl Future for Controller {
+impl Future for Router {
     type Output = io::Result<()>;
 }
 ```
@@ -103,15 +98,15 @@ Configure via `resources/log4rs.yaml`:
 ### Log Messages
 
 **Info Level:**
-- `start controller` - Controller initialization
+- `start router` - Router initialization
 - `server started` - HTTP server ready
-- `Applied: {node}` - Node added/modified
-- `Deleted: {node}` - Node deleted
-- `shutdown controller` - Graceful shutdown
+- `Applied: {node}` - Node configuration processed
+- `Deleted: {node}` - Node configuration removed
+- `shutdown router` - Graceful shutdown
 
 **Error Level:**
-- API connection failures
-- Watch stream errors
+- Route update failures
+- Tunnel creation failures
 - Signal handling failures
 
 ## Metrics
@@ -121,8 +116,8 @@ Configure via `resources/log4rs.yaml`:
 Expose metrics via `prometheus-client` crate.
 
 **Available Metrics:**
-- Node watch events counter
-- Route update duration histogram
+- Route update counter
+- Tunnel creation duration histogram
 - HTTP request latency histogram
 
 **Metrics Endpoint:**
@@ -151,7 +146,7 @@ root:
 | Variable | Purpose |
 |----------|---------|
 | `RUST_LOG` | Override log level |
-| `KUBECONFIG` | Kubernetes config path |
+| `KUBECONFIG` | Kubernetes config path (for node metadata) |
 | `LISTEN_ADDR` | HTTP server address |
 
 ## Signal Handling
@@ -168,7 +163,7 @@ root:
 1. Receive signal
 2. Log shutdown initiation
 3. Stop HTTP server (30s timeout)
-4. Stop controller (graceful)
+4. Stop router (graceful)
 5. Exit application
 
 ## Return Values

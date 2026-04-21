@@ -13,14 +13,15 @@ This guide covers testing strategies, patterns, and best practices for the Ciliu
 ### Integration Testing
 
 - Test component interactions
-- Verify Kubernetes API integration
-- Validate end-to-end workflows
+- Verify node-local IPIP tunnel operations
+- Validate kernel route updates
 
 ### Manual Testing
 
 - Test with real Kubernetes cluster
 - Verify signal handling
 - Confirm health check behavior
+- Validate IPIP tunnel creation
 
 ## Testing Tools
 
@@ -58,40 +59,38 @@ use kube::Api;
 use mockall::predicate::*;
 
 #[tokio::test]
-async fn test_node_watch() {
+async fn test_node_metadata() {
     let mut client = MockClient::new();
     
     let nodes: Api<Node> = Api::all(client.clone());
     
-    // Mock the watch stream
-    let watch_stream = futures::stream::iter(vec![
-        Ok(WatchEvent::Added(create_test_node())),
-    ]);
+    // Mock the node retrieval
+    let node = create_test_node();
     
     // Verify expected behavior
-    assert!(stream.next().await.is_some());
+    assert_eq!(node.metadata.name, Some("test-node".to_string()));
 }
 ```
 
-### Testing Controller Builder
+### Testing Router Builder
 
 ```rust
 #[tokio::test]
-async fn test_controller_builder() {
-    let builder = ControllerBuilder::new();
+async fn test_router_builder() {
+    let builder = RouterBuilder::new();
     
     assert!(builder.cmd_tx.is_some());
     assert!(builder.cmd_rx.is_some());
 }
 ```
 
-### Testing Controller Handle
+### Testing Router Handle
 
 ```rust
 #[tokio::test]
-async fn test_controller_handle_stop() {
+async fn test_router_handle_stop() {
     let (tx, _) = tokio::sync::mpsc::unbounded_channel();
-    let handle = ControllerHandle::new(tx);
+    let handle = RouterHandle::new(tx);
     
     handle.stop(false).await;
     
@@ -179,13 +178,13 @@ jobs:
 1. **Arrange-Act-Assert Pattern**
    ```rust
    // Arrange
-   let builder = ControllerBuilder::new();
+   let builder = RouterBuilder::new();
    
    // Act
-   let controller = Controller::new(builder);
+   let router = Router::new(builder);
    
    // Assert
-   assert!(controller.handle().is_some());
+   assert!(router.handle().is_some());
    ```
 
 2. **Test One Thing Per Test**
@@ -197,7 +196,7 @@ jobs:
    - Use mock clients for isolation
 
 4. **Test Edge Cases**
-   - Empty lists
+   - Empty configurations
    - Single items
    - Error conditions
    - Signal interruptions
@@ -207,13 +206,13 @@ jobs:
 ```rust
 // Good: Descriptive and specific
 #[tokio::test]
-async fn test_controller_builder_creates_valid_instance() { }
+async fn test_router_builder_creates_valid_instance() { }
 
 #[tokio::test]
-async fn test_controller_handle_sends_stop_command() { }
+async fn test_router_handle_sends_stop_command() { }
 
 #[tokio::test]
-async fn test_watch_stream_processes_added_nodes() { }
+async fn test_tunnel_creation_creates_ipip_interface() { }
 ```
 
 ### Async Testing
@@ -280,8 +279,9 @@ fn create_test_node() -> Node {
 
 ### Test Scenarios
 
-1. **Node Added**: Verify route creation
-2. **Node Modified**: Verify route update
-3. **Node Deleted**: Verify route cleanup
-4. **Watch Stream Error**: Verify error handling
-5. **Signal Reception**: Verify graceful shutdown
+1. **Node Retrieved**: Verify node metadata retrieval
+2. **Router Started**: Verify HTTP server startup
+3. **Router Stopped**: Verify graceful shutdown
+4. **Tunnel Created**: Verify IPIP tunnel creation
+5. **Route Updated**: Verify kernel route update
+6. **Signal Reception**: Verify graceful shutdown
