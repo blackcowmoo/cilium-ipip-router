@@ -11,14 +11,11 @@ This Rust-based router creates and manages IPIP tunnels for Cilium network overl
 ```
 /git/work/
 ├── src/
-│   ├── main.rs              # Application entry point with Actix web server
+│   ├── main.rs              # Application entry point
 │   ├── lib.rs               # Library module declarations
-│   └── controller/
-│       ├── mod.rs           # Controller module exports (legacy)
-│       ├── root.rs          # Legacy controller implementation (pending removal)
-│       ├── root_tests.rs    # Unit tests
-│       ├── builder.rs       # Builder pattern (legacy)
-│       └── handle.rs        # Handle pattern (legacy)
+│   └── router/
+│       ├── mod.rs           # Router module exports
+│       └── handle.rs        # Router handle implementation
 ├── resources/
 │   └── log4rs.yaml          # Logging configuration
 ├── Dockerfile               # Multi-stage Docker build
@@ -49,8 +46,7 @@ This Rust-based router creates and manages IPIP tunnels for Cilium network overl
 |-----------|------------|
 | Runtime | Tokio (async runtime) |
 | Web Framework | Actix Web 4.9.0 |
-| Kubernetes Client | kube 0.96.0 (for node metadata) |
-| Kubernetes API | k8s-openapi 0.24.0 (for node metadata) |
+| Kubernetes Client | kube 0.96.0 |
 | Logging | log + log4rs 1.3.0 |
 | Metrics | prometheus-client 0.22.3 |
 | Error Handling | anyhow 1.0.89 |
@@ -58,8 +54,7 @@ This Rust-based router creates and manages IPIP tunnels for Cilium network overl
 ### Key Dependencies
 
 - `actix-web`: HTTP server framework
-- `kube`: Kubernetes client library (for node metadata retrieval)
-- `k8s-openapi`: Kubernetes OpenAPI specifications (for node metadata)
+- `kube`: Kubernetes client library
 - `tokio`: Async runtime with signal handling
 - `log4rs`: Configurable logging system
 - `mockall`: Unit test mocking framework
@@ -170,7 +165,7 @@ Response:
 "healthy"
 ```
 
-## Code Generation Guidelines
+## Code Structure
 
 ### Module Structure
 
@@ -178,20 +173,17 @@ All code follows this organization:
 
 ```
 src/
-├── main.rs           # Single entry point, no modules
+├── main.rs           # Application entry point
 ├── lib.rs            # Module re-exports only
-└── controller/       # Domain-specific logic
+└── router/
     ├── mod.rs        # Module declarations and re-exports
-    ├── builder.rs    # Builder pattern implementations
-    ├── handle.rs     # Handle/Command pattern implementations
-    └── root.rs       # Core business logic
+    └── handle.rs     # Router handle implementation
 ```
 
 ### Naming Conventions
 
-- **Modules**: snake_case (`controller`, `builder`, `handle`)
-- **Structs**: PascalCase (`Controller`, `ControllerBuilder`, `ControllerHandle`)
-- **Enums**: PascalCase with `EnumName` prefix for commands (`ControllerCommand`)
+- **Modules**: snake_case (`router`, `handle`)
+- **Structs**: PascalCase (`RouterHandle`)
 - **Functions**: snake_case (`run`, `watch`, `update_route`)
 - **Constants**: SCREAMING_SNAKE_CASE
 
@@ -206,12 +198,11 @@ src/
 
 - Use `#[tokio::main]` for async entry points
 - Use `BoxFuture<'static, io::Result<()>>` for long-running futures
-- Implement `Future` trait directly for controller types
 - Use `tokio::select!` for concurrent event handling
 
 ### Testing Guidelines
 
-1. **Test Location**: Place tests in same file as code (`root_tests.rs`)
+1. **Test Location**: Place tests in same file as code
 2. **Async Tests**: Use `#[tokio::test]` attribute
 3. **Mocking**: Use `mockall` for external dependencies
 4. **Isolation**: Test without real Kubernetes API when possible
@@ -253,7 +244,6 @@ MIT
 For more detailed information, see the [documentation](docs/) directory:
 
 - [Architecture Overview](docs/architecture.md)
-- [API Reference](docs/api-reference.md)
 
 
 ## Contributing
