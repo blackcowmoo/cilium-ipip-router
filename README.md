@@ -257,7 +257,7 @@ For more detailed information, see the [documentation](docs/) directory:
 - [Deployment Guide](docs/deployment.md)
 - [API Reference](docs/api-reference.md)
 - [Testing Guide](docs/testing.md)
-- [Code Generation Guidelines](docs/code-generation.md)
+
 
 ## Contributing
 
