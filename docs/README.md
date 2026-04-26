@@ -9,19 +9,15 @@ Welcome to the Cilium IPIP Router documentation. This project implements a Kuber
 ### Core Documentation
 
 - **[Architecture Overview](architecture.md)** - High-level system architecture and component interactions
-- **[Developer Guide](developer-guide.md)** - Development workflows, coding standards, and best practices
-
 - **[API Reference](api-reference.md)** - Public API endpoints and interfaces
-- **[Testing Guide](testing.md)** - Testing strategies and test patterns
 
 ## Quick Start
 
 ### For Developers
 
-1. Review the [Developer Guide](developer-guide.md)
-2. Set up your development environment
-3. Run tests: `cargo test --target x86_64-unknown-linux-gnu`
-4. Submit pull requests following the guidelines
+1. Set up your development environment
+2. Run tests: `cargo test --target x86_64-unknown-linux-gnu`
+3. Submit pull requests following the guidelines
 
 ### For Operators
 
@@ -58,10 +54,9 @@ docs/                    # This documentation
 
 ## Contributing
 
-1. Read the [Developer Guide](developer-guide.md)
-2. Follow the coding standards
-3. Add tests for new functionality
-4. Update documentation as needed
+1. Follow the coding standards
+2. Add tests for new functionality
+3. Update documentation as needed
 
 ## Support
 
