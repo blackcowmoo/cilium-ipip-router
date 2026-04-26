@@ -254,7 +254,7 @@ For more detailed information, see the [documentation](docs/) directory:
 
 - [Architecture Overview](docs/architecture.md)
 - [Developer Guide](docs/developer-guide.md)
-- [Deployment Guide](docs/deployment.md)
+
 - [API Reference](docs/api-reference.md)
 - [Testing Guide](docs/testing.md)
 

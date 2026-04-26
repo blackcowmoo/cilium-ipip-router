@@ -10,7 +10,7 @@ Welcome to the Cilium IPIP Router documentation. This project implements a Kuber
 
 - **[Architecture Overview](architecture.md)** - High-level system architecture and component interactions
 - **[Developer Guide](developer-guide.md)** - Development workflows, coding standards, and best practices
-- **[Deployment Guide](deployment.md)** - Deployment strategies and configuration options
+
 - **[API Reference](api-reference.md)** - Public API endpoints and interfaces
 - **[Testing Guide](testing.md)** - Testing strategies and test patterns
 
@@ -25,10 +25,9 @@ Welcome to the Cilium IPIP Router documentation. This project implements a Kuber
 
 ### For Operators
 
-1. Review the [Deployment Guide](deployment.md)
-2. Choose your deployment method
-3. Configure RBAC and permissions
-4. Deploy and monitor
+1. Set up your deployment environment
+2. Configure RBAC and permissions
+3. Deploy and monitor
 
 ## Project Structure
 
