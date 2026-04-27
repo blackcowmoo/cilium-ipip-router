@@ -13,9 +13,12 @@ This Rust-based router creates and manages IPIP tunnels for Cilium network overl
 ├── src/
 │   ├── main.rs              # Application entry point
 │   ├── lib.rs               # Library module declarations
-│   └── router/
-│       ├── mod.rs           # Router module exports
-│       └── handle.rs        # Router handle implementation
+│   └── controller/
+│       ├── mod.rs           # Controller module declarations
+│       ├── builder.rs       # Controller builder implementation
+│       ├── handle.rs        # Controller handle implementation
+│       ├── root.rs          # Controller main implementation
+│       └── root_tests.rs    # Controller unit tests
 ├── resources/
 │   └── log4rs.yaml          # Logging configuration
 ├── Dockerfile               # Multi-stage Docker build
@@ -175,16 +178,19 @@ All code follows this organization:
 src/
 ├── main.rs           # Application entry point
 ├── lib.rs            # Module re-exports only
-└── router/
+└── controller/
     ├── mod.rs        # Module declarations and re-exports
-    └── handle.rs     # Router handle implementation
+    ├── builder.rs    # Controller builder implementation
+    ├── handle.rs     # Controller handle implementation
+    ├── root.rs       # Controller main implementation
+    └── root_tests.rs # Unit tests
 ```
 
 ### Naming Conventions
 
-- **Modules**: snake_case (`router`, `handle`)
-- **Structs**: PascalCase (`RouterHandle`)
-- **Functions**: snake_case (`run`, `watch`, `update_route`)
+- **Modules**: snake_case (`controller`, `builder`, `handle`)
+- **Structs**: PascalCase (`Controller`, `ControllerHandle`)
+- **Functions**: snake_case (`run`, `watch`, `update_route`, `delete_route`)
 - **Constants**: SCREAMING_SNAKE_CASE
 
 ### Error Handling
