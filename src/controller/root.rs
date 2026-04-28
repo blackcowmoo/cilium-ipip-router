@@ -1,5 +1,4 @@
 use super::{builder::ControllerBuilder, handle::ControllerHandle};
-use crate::controller::handle::ControllerCommand;
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
@@ -13,6 +12,7 @@ use std::{
     future::Future,
     io,
     pin::Pin,
+    process::Command,
     task::{Context, Poll},
 };
 use tokio::time::{self, Duration};
@@ -67,6 +67,29 @@ pub async fn run() -> Controller {
 struct ControllerInner {}
 
 impl ControllerInner {
+    fn get_tunnel_name(node_name: &str) -> String {
+        use md5::Md5;
+        use md5::Digest;
+        let mut hasher = Md5::new();
+        hasher.update(node_name);
+        format!("{:x}", hasher.finalize())
+    }
+
+    fn run_ip_command(args: &[&str]) -> io::Result<()> {
+        Command::new("ip").args(args).output()?;
+        Ok(())
+    }
+
+    fn get_node_ip(node: &Node) -> Option<String> {
+        node.status
+            .as_ref()?
+            .addresses
+            .as_ref()?
+            .iter()
+            .find(|addr| addr.address_type.as_deref() == Some("ExternalIP") || addr.address_type.as_deref() == Some("InternalIP"))
+            .map(|addr| addr.address.clone())
+    }
+
     pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
         let client = Client::try_default()
             .await
@@ -116,10 +139,37 @@ impl ControllerInner {
     }
 
     async fn update_route(node: Node) {
-        log::info!("Applied: {}", node.name_any());
+        let node_name = node.name_any();
+        let node_ip = Self::get_node_ip(&node);
+
+        match node_ip {
+            Some(ip) => {
+                let tunnel_name = Self::get_tunnel_name(&node_name);
+                
+                if let Err(e) = Self::run_ip_command(&[
+                    "tunnel", "add", &tunnel_name, "mode", "ipip", "remote", &ip
+                ]) {
+                    log::error!("Failed to create tunnel {}: {}", tunnel_name, e);
+                    return;
+                }
+                
+                log::info!("Created IPIP tunnel {} for node {} with remote IP {}", 
+                          tunnel_name, node_name, ip);
+            }
+            None => {
+                log::warn!("No IP address found for node {}", node_name);
+            }
+        }
     }
 
     async fn delete_route(node: Node) {
-        log::info!("Deleted: {}", node.name_any());
+        let node_name = node.name_any();
+        let tunnel_name = Self::get_tunnel_name(&node_name);
+        
+        if let Err(e) = Self::run_ip_command(&["tunnel", "del", &tunnel_name]) {
+            log::error!("Failed to delete tunnel {}: {}", tunnel_name, e);
+        } else {
+            log::info!("Deleted IPIP tunnel {} for node {}", tunnel_name, node_name);
+        }
     }
 }
