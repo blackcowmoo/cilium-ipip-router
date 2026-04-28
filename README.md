@@ -67,21 +67,21 @@ This Rust-based router creates and manages IPIP tunnels for Cilium network overl
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Kubernetes Cluster                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │  Node 1  │  │  Node 2  │  │  Node N  │                  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │  Node 1  │  │  Node 2  │  │  Node N  │                   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                   │
 │       │             │             │                         │
-│  ┌────▼─────┐  ┌────▼─────┐  ┌────▼─────┐                 │
-│  │  Router  │  │  Router  │  │  Router  │                 │
-│  │  - Local │  │  - Local │  │  - Local │                 │
-│  │  IPIP    │  │  IPIP    │  │  IPIP    │                 │
-│  │  Tunnel  │  │  Tunnel  │  │  Tunnel  │                 │
-│  │  Kernel  │  │  Kernel  │  │  Kernel  │                 │
-│  │  Routes  │  │  Routes  │  │  Routes  │                 │
-│  └──────────┘  └──────────┘  └──────────┘                 │
+│  ┌────▼─────┐  ┌────▼─────┐  ┌────▼─────┐                   │
+│  │  Router  │  │  Router  │  │  Router  │                   │
+│  │  - Local │  │  - Local │  │  - Local │                   │
+│  │  IPIP    │  │  IPIP    │  │  IPIP    │                   │
+│  │  Tunnel  │  │  Tunnel  │  │  Tunnel  │                   │
+│  │  Kernel  │  │  Kernel  │  │  Kernel  │                   │
+│  │  Routes  │  │  Routes  │  │  Routes  │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
 │                                                             │
-│  Each router manages only its node's IPIP routes via      │
-│  direct kernel routing - no central controller.            │
+│  Each router manages only its node's IPIP routes via        │
+│  direct kernel routing - no central controller.             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -106,23 +106,6 @@ cargo build --release
 # Or build for specific target
 cargo build --release --target x86_64-unknown-linux-gnu
 ```
-
-### Running Locally
-
-```bash
-# Ensure kubeconfig is configured
-export KUBECONFIG=/path/to/kubeconfig
-
-# Run the application
-cargo run --target x86_64-unknown-linux-gnu
-```
-
-The application will:
-1. Initialize logging via `resources/log4rs.yaml`
-2. Create IPIP tunnel for local node
-3. Update kernel routing tables
-4. Start HTTP server on `0.0.0.0:9090`
-5. Expose `/health` endpoint for health checks
 
 ### Docker Deployment
 
@@ -221,19 +204,6 @@ src/
 - Run linter: `cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings`
 - Check for warnings: Enable `-D warnings` in CI
 
-### Commit Policy
-
-- Author must be configured (not `opencode`)
-- Use descriptive commit messages
-- Follow conventional commits format recommended
-
-### CI/CD Pipeline
-
-- **Test Workflow**: Runs on pull requests and pushes to main
-- **Deploy Workflow**: Pushes Docker images on tags and main branch
-- **Coverage**: Generates coverage reports for each build
-- **Docker**: Validates Docker build process
-
 ## Monitoring
 
 The application exposes:
@@ -241,20 +211,8 @@ The application exposes:
 - Health check endpoint at `/health`
 - Structured logging via `log4rs`
 
-## License
-
-MIT
-
 ## Documentation
 
 For more detailed information, see the [documentation](docs/) directory:
 
 - [Architecture Overview](docs/architecture.md)
-
-
-## Contributing
-
-1. Follow existing code patterns and structure
-2. Run `cargo fmt` and `cargo clippy` before committing
-3. Add tests for new functionality
-4. Update documentation as needed
