@@ -89,7 +89,7 @@ This Rust-based router creates and manages IPIP tunnels for Cilium network overl
 
 ### Prerequisites
 
-- Rust 1.82.0 or later
+- Rust 1.95.0 or later
 - Kubernetes cluster access (kubeconfig)
 - Docker (for containerized deployment)
 
