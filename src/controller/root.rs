@@ -85,9 +85,7 @@ impl ControllerInner {
             .addresses
             .as_ref()?
             .iter()
-            .find(|addr| {
-                addr.type_ == "ExternalIP" || addr.type_ == "InternalIP"
-            })
+            .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
             .map(|addr| addr.address.clone())
     }
 
