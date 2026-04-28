@@ -68,8 +68,8 @@ struct ControllerInner {}
 
 impl ControllerInner {
     fn get_tunnel_name(node_name: &str) -> String {
-        use md5::Md5;
         use md5::Digest;
+        use md5::Md5;
         let mut hasher = Md5::new();
         hasher.update(node_name);
         format!("{:x}", hasher.finalize())
@@ -86,7 +86,10 @@ impl ControllerInner {
             .addresses
             .as_ref()?
             .iter()
-            .find(|addr| addr.address_type.as_deref() == Some("ExternalIP") || addr.address_type.as_deref() == Some("InternalIP"))
+            .find(|addr| {
+                addr.address_type.as_deref() == Some("ExternalIP")
+                    || addr.address_type.as_deref() == Some("InternalIP")
+            })
             .map(|addr| addr.address.clone())
     }
 
@@ -145,16 +148,26 @@ impl ControllerInner {
         match node_ip {
             Some(ip) => {
                 let tunnel_name = Self::get_tunnel_name(&node_name);
-                
+
                 if let Err(e) = Self::run_ip_command(&[
-                    "tunnel", "add", &tunnel_name, "mode", "ipip", "remote", &ip
+                    "tunnel",
+                    "add",
+                    &tunnel_name,
+                    "mode",
+                    "ipip",
+                    "remote",
+                    &ip,
                 ]) {
                     log::error!("Failed to create tunnel {}: {}", tunnel_name, e);
                     return;
                 }
-                
-                log::info!("Created IPIP tunnel {} for node {} with remote IP {}", 
-                          tunnel_name, node_name, ip);
+
+                log::info!(
+                    "Created IPIP tunnel {} for node {} with remote IP {}",
+                    tunnel_name,
+                    node_name,
+                    ip
+                );
             }
             None => {
                 log::warn!("No IP address found for node {}", node_name);
@@ -165,7 +178,7 @@ impl ControllerInner {
     async fn delete_route(node: Node) {
         let node_name = node.name_any();
         let tunnel_name = Self::get_tunnel_name(&node_name);
-        
+
         if let Err(e) = Self::run_ip_command(&["tunnel", "del", &tunnel_name]) {
             log::error!("Failed to delete tunnel {}: {}", tunnel_name, e);
         } else {
