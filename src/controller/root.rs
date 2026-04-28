@@ -1,4 +1,4 @@
-use super::{builder::ControllerBuilder, handle::ControllerHandle};
+use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
@@ -68,11 +68,10 @@ struct ControllerInner {}
 
 impl ControllerInner {
     fn get_tunnel_name(node_name: &str) -> String {
-        use md5::Digest;
-        use md5::Md5;
-        let mut hasher = Md5::new();
-        hasher.update(node_name);
-        format!("{:x}", hasher.finalize())
+        use std::io::Write;
+        let mut hasher = md5::Context::new();
+        let _ = hasher.write_all(node_name.as_bytes());
+        format!("{:x}", hasher.compute())
     }
 
     fn run_ip_command(args: &[&str]) -> io::Result<()> {
@@ -87,8 +86,7 @@ impl ControllerInner {
             .as_ref()?
             .iter()
             .find(|addr| {
-                addr.address_type.as_deref() == Some("ExternalIP")
-                    || addr.address_type.as_deref() == Some("InternalIP")
+                addr.type_ == "ExternalIP" || addr.type_ == "InternalIP"
             })
             .map(|addr| addr.address.clone())
     }
