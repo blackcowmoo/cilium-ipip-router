@@ -68,10 +68,12 @@ struct ControllerInner {}
 
 impl ControllerInner {
     fn get_tunnel_name(node_name: &str) -> String {
-        use std::io::Write;
-        let mut hasher = md5::Context::new();
-        let _ = hasher.write_all(node_name.as_bytes());
-        format!("{:x}", hasher.compute())
+        let truncated_name = if node_name.len() > 10 {
+            &node_name[0..10]
+        } else {
+            node_name
+        };
+        format!("tun-{}", truncated_name)
     }
 
     fn run_ip_command(args: &[&str]) -> io::Result<()> {
