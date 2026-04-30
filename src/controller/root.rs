@@ -135,7 +135,7 @@ impl ControllerInner {
             .await
             .ok()?
             .into_iter()
-            .find(|n| n.metadata.name == hostname)
+            .find(|n| n.metadata.name.as_deref() == Some(hostname.as_str()))
             .and_then(|node| Self::get_node_ip(&node))
     }
 
