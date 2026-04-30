@@ -82,7 +82,7 @@ impl ControllerInner {
 
     fn tunnel_exists(tunnel_name: &str) -> io::Result<bool> {
         let output = Command::new("ip")
-            .args(&["tunnel", "show", tunnel_name])
+            .args(["tunnel", "show", tunnel_name])
             .output()?;
         Ok(output.status.success())
     }
