@@ -2,7 +2,11 @@ use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
+use std::io;
+use std::process::Output;
 use tokio::sync::mpsc::unbounded_channel;
+
+use crate::controller::root::IpCommand;
 
 #[cfg(test)]
 mod tests {
@@ -338,5 +342,48 @@ mod tests {
 
         let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
         assert_eq!(node_ip, None);
+    }
+
+    #[test]
+    fn test_ip_command_new() {
+        let ip_cmd = IpCommand::new();
+        assert!(matches!(ip_cmd, IpCommand));
+    }
+
+    #[test]
+    fn test_ip_command_run_success() {
+        let ip_cmd = IpCommand::new();
+        let result = ip_cmd.run(&["--help"]);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.status.success());
+        assert!(!output.stdout.is_empty());
+    }
+
+    #[test]
+    fn test_ip_command_run_failure() {
+        let ip_cmd = IpCommand::new();
+        let result = ip_cmd.run(&["nonexistent", "command"]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ip_command_run_with_multiple_args() {
+        let ip_cmd = IpCommand::new();
+        let result = ip_cmd.run(&["link", "show", "lo"]);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.status.success());
+    }
+
+    #[test]
+    fn test_ip_command_run_empty_args() {
+        let ip_cmd = IpCommand::new();
+        let result = ip_cmd.run(&[]);
+
+        assert!(result.is_err());
     }
 }

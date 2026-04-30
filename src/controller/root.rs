@@ -18,14 +18,14 @@ use std::{
 };
 use tokio::time::{self, Duration};
 
-struct IpCommand;
+pub struct IpCommand;
 
 impl IpCommand {
-    fn new() -> Self {
+    pub fn new() -> Self {
         IpCommand
     }
 
-    fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
+    pub fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
         Command::new("ip").args(args).output()
     }
 }
