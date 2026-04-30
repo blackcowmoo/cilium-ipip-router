@@ -115,7 +115,7 @@ impl ControllerInner {
         Ok(output.status.success())
     }
 
-    pub    fn get_node_ip(node: &Node) -> Option<String> {
+    pub fn get_node_ip(node: &Node) -> Option<String> {
         node.status
             .as_ref()?
             .addresses
@@ -129,7 +129,7 @@ impl ControllerInner {
         let hostname = std::env::var("HOSTNAME").ok()?;
         let client = Client::try_default().ok()?;
         let nodes: Api<Node> = Api::all(client);
-        
+
         nodes
             .list(&Default::default())
             .ok()?
@@ -213,7 +213,10 @@ impl ControllerInner {
                             &ip,
                         ]) {
                             if !output.status.success() {
-                                log::error!("Failed to create tunnel {}: command failed", tunnel_name);
+                                log::error!(
+                                    "Failed to create tunnel {}: command failed",
+                                    tunnel_name
+                                );
                                 return;
                             }
                         } else {
@@ -230,7 +233,10 @@ impl ControllerInner {
                         );
                     }
                     None => {
-                        log::warn!("Could not determine local node IP, skipping tunnel creation for {}", node_name);
+                        log::warn!(
+                            "Could not determine local node IP, skipping tunnel creation for {}",
+                            node_name
+                        );
                     }
                 }
             }
