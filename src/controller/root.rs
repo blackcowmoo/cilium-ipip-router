@@ -16,6 +16,7 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::time::{self, Duration};
+use md5::Md5;
 
 // #[derive(CustomResource, Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 // #[kube(group = "cilium.io", version = "v2", kind = "CiliumEndpoint", namespaced)]
@@ -68,12 +69,12 @@ pub struct ControllerInner {}
 
 impl ControllerInner {
     pub fn get_tunnel_name(node_name: &str) -> String {
-        let truncated_name = if node_name.len() > 11 {
-            &node_name[0..11]
-        } else {
-            node_name
-        };
-        format!("tun-{}", truncated_name)
+        let mut hasher = Md5::new();
+        hasher.update(node_name);
+        let hash = hasher.finalize();
+        let hex_hash = format!("{:x}", hash);
+        let truncated_hash = &hex_hash[0..11];
+        format!("tun-{}", truncated_hash)
     }
 
     fn run_ip_command(args: &[&str]) -> io::Result<()> {

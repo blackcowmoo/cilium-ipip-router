@@ -236,7 +236,7 @@ mod tests {
     fn test_get_tunnel_name_short() {
         let node_name = "node-1";
         let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
-        assert_eq!(tunnel_name, "tun-node-1");
+        assert_eq!(tunnel_name, "tun-d50164b9587");
         assert!(tunnel_name.len() <= 15);
     }
 
@@ -244,7 +244,7 @@ mod tests {
     fn test_get_tunnel_name_long() {
         let node_name = "very-long-node-name-that-exceeds-limit";
         let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
-        assert_eq!(tunnel_name, "tun-very-long-n");
+        assert_eq!(tunnel_name, "tun-743e7336877");
         assert!(tunnel_name.len() <= 15);
     }
 
@@ -252,7 +252,7 @@ mod tests {
     fn test_get_tunnel_name_exact_length() {
         let node_name = "exactly10chars";
         let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
-        assert_eq!(tunnel_name, "tun-exactly10ch");
+        assert_eq!(tunnel_name, "tun-15754261d2f");
         assert!(tunnel_name.len() <= 15);
     }
 
