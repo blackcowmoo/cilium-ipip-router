@@ -25,9 +25,8 @@ impl IpCommand {
         IpCommand
     }
 
-    fn run(&self, args: &[&str]) -> io::Result<()> {
-        Command::new("ip").args(args).output()?;
-        Ok(())
+    fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
+        Command::new("ip").args(args).output()
     }
 }
 
@@ -88,7 +87,7 @@ impl ControllerInner {
         format!("tun-{}", truncated_hash)
     }
 
-    fn run_ip_command(args: &[&str]) -> io::Result<()> {
+    fn run_ip_command(args: &[&str]) -> io::Result<std::process::Output> {
         IpCommand::new().run(args)
     }
 
@@ -168,7 +167,7 @@ impl ControllerInner {
                     return;
                 }
 
-                if let Err(e) = Self::run_ip_command(&[
+                if let Ok(output) = Self::run_ip_command(&[
                     "tunnel",
                     "add",
                     &tunnel_name,
@@ -177,7 +176,12 @@ impl ControllerInner {
                     "remote",
                     &ip,
                 ]) {
-                    log::error!("Failed to create tunnel {}: {}", tunnel_name, e);
+                    if !output.status.success() {
+                        log::error!("Failed to create tunnel {}: command failed", tunnel_name);
+                        return;
+                    }
+                } else {
+                    log::error!("Failed to create tunnel {}: command error", tunnel_name);
                     return;
                 }
 
@@ -198,10 +202,14 @@ impl ControllerInner {
         let node_name = node.name_any();
         let tunnel_name = Self::get_tunnel_name(&node_name);
 
-        if let Err(e) = Self::run_ip_command(&["tunnel", "del", &tunnel_name]) {
-            log::error!("Failed to delete tunnel {}: {}", tunnel_name, e);
+        if let Ok(output) = Self::run_ip_command(&["tunnel", "del", &tunnel_name]) {
+            if output.status.success() {
+                log::info!("Deleted IPIP tunnel {} for node {}", tunnel_name, node_name);
+            } else {
+                log::error!("Failed to delete tunnel {}: command failed", tunnel_name);
+            }
         } else {
-            log::info!("Deleted IPIP tunnel {} for node {}", tunnel_name, node_name);
+            log::error!("Failed to delete tunnel {}: command error", tunnel_name);
         }
     }
 }
