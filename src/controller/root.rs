@@ -8,7 +8,7 @@ use kube::{
     client::Client,
     ResourceExt,
 };
-use md5::Md5;
+use md5::compute;
 use std::{
     future::Future,
     io,
@@ -69,9 +69,7 @@ pub struct ControllerInner {}
 
 impl ControllerInner {
     pub fn get_tunnel_name(node_name: &str) -> String {
-        let mut hasher = Md5::new();
-        hasher.update(node_name);
-        let hash = hasher.finalize();
+        let hash = compute(node_name);
         let hex_hash = format!("{:x}", hash);
         let truncated_hash = &hex_hash[0..11];
         format!("tun-{}", truncated_hash)
