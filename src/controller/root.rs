@@ -68,8 +68,8 @@ pub struct ControllerInner {}
 
 impl ControllerInner {
     pub fn get_tunnel_name(node_name: &str) -> String {
-        let truncated_name = if node_name.len() > 10 {
-            &node_name[0..10]
+        let truncated_name = if node_name.len() > 11 {
+            &node_name[0..11]
         } else {
             node_name
         };
