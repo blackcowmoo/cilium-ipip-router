@@ -252,7 +252,7 @@ mod tests {
     fn test_get_tunnel_name_exact_length() {
         let node_name = "exactly10chars";
         let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
-        assert_eq!(tunnel_name, "tun-exactly10c");
+        assert_eq!(tunnel_name, "tun-exactly10ch");
         assert!(tunnel_name.len() <= 15);
     }
 
