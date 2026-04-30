@@ -80,6 +80,13 @@ impl ControllerInner {
         Ok(())
     }
 
+    fn tunnel_exists(tunnel_name: &str) -> io::Result<bool> {
+        let output = Command::new("ip")
+            .args(&["tunnel", "show", tunnel_name])
+            .output()?;
+        Ok(output.status.success())
+    }
+
     pub fn get_node_ip(node: &Node) -> Option<String> {
         node.status
             .as_ref()?
@@ -145,6 +152,11 @@ impl ControllerInner {
         match node_ip {
             Some(ip) => {
                 let tunnel_name = Self::get_tunnel_name(&node_name);
+
+                if let Ok(true) = Self::tunnel_exists(&tunnel_name) {
+                    log::info!("Tunnel {} already exists, skipping creation", tunnel_name);
+                    return;
+                }
 
                 if let Err(e) = Self::run_ip_command(&[
                     "tunnel",
