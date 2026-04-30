@@ -2,8 +2,6 @@ use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
-use std::io;
-use std::process::Output;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::controller::root::IpCommand;
@@ -353,7 +351,7 @@ mod tests {
     #[test]
     fn test_ip_command_run_success() {
         let ip_cmd = IpCommand::new();
-        let result = ip_cmd.run(&["--help"]);
+        let result = ip_cmd.run(&["link", "show", "lo"]);
 
         assert!(result.is_ok());
         let output = result.unwrap();

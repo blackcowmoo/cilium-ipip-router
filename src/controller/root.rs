@@ -25,8 +25,21 @@ impl IpCommand {
         IpCommand
     }
 
-    pub fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
-        Command::new("ip").args(args).output()
+ pub fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
+        if args.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "ip command requires at least one argument",
+            ));
+        }
+        let output = Command::new("ip").args(args).output()?;
+        if !output.status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("ip command failed: {:?}", output.status),
+            ));
+        }
+        Ok(output)
     }
 }
 
