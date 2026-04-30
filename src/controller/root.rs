@@ -115,7 +115,7 @@ impl ControllerInner {
         Ok(output.status.success())
     }
 
-    pub fn get_node_ip(node: &Node) -> Option<String> {
+    pub    fn get_node_ip(node: &Node) -> Option<String> {
         node.status
             .as_ref()?
             .addresses
@@ -123,6 +123,19 @@ impl ControllerInner {
             .iter()
             .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
             .map(|addr| addr.address.clone())
+    }
+
+    fn get_local_node_ip() -> Option<String> {
+        let hostname = std::env::var("HOSTNAME").ok()?;
+        let client = Client::try_default().ok()?;
+        let nodes: Api<Node> = Api::all(client);
+        
+        nodes
+            .list(&Default::default())
+            .ok()?
+            .into_iter()
+            .find(|n| n.metadata.name == hostname)
+            .and_then(|node| Self::get_node_ip(&node))
     }
 
     pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
@@ -186,30 +199,40 @@ impl ControllerInner {
                     return;
                 }
 
-                if let Ok(output) = Self::run_ip_command(&[
-                    "tunnel",
-                    "add",
-                    &tunnel_name,
-                    "mode",
-                    "ipip",
-                    "remote",
-                    &ip,
-                ]) {
-                    if !output.status.success() {
-                        log::error!("Failed to create tunnel {}: command failed", tunnel_name);
-                        return;
-                    }
-                } else {
-                    log::error!("Failed to create tunnel {}: command error", tunnel_name);
-                    return;
-                }
+                match Self::get_local_node_ip() {
+                    Some(local_ip) => {
+                        if let Ok(output) = Self::run_ip_command(&[
+                            "tunnel",
+                            "add",
+                            &tunnel_name,
+                            "mode",
+                            "ipip",
+                            "local",
+                            &local_ip,
+                            "remote",
+                            &ip,
+                        ]) {
+                            if !output.status.success() {
+                                log::error!("Failed to create tunnel {}: command failed", tunnel_name);
+                                return;
+                            }
+                        } else {
+                            log::error!("Failed to create tunnel {}: command error", tunnel_name);
+                            return;
+                        }
 
-                log::info!(
-                    "Created IPIP tunnel {} for node {} with remote IP {}",
-                    tunnel_name,
-                    node_name,
-                    ip
-                );
+                        log::info!(
+                            "Created IPIP tunnel {} for node {} with local IP {} and remote IP {}",
+                            tunnel_name,
+                            node_name,
+                            local_ip,
+                            ip
+                        );
+                    }
+                    None => {
+                        log::warn!("Could not determine local node IP, skipping tunnel creation for {}", node_name);
+                    }
+                }
             }
             None => {
                 log::warn!("No IP address found for node {}", node_name);
