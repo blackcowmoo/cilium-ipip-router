@@ -286,12 +286,10 @@ mod tests {
             metadata: Default::default(),
             spec: None,
             status: Some(k8s_openapi::api::core::v1::NodeStatus {
-                addresses: Some(vec![
-                    k8s_openapi::api::core::v1::NodeAddress {
-                        type_: "InternalIP".to_string(),
-                        address: "10.0.0.1".to_string(),
-                    },
-                ]),
+                addresses: Some(vec![k8s_openapi::api::core::v1::NodeAddress {
+                    type_: "InternalIP".to_string(),
+                    address: "10.0.0.1".to_string(),
+                }]),
                 ..Default::default()
             }),
         };
