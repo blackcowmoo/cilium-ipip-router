@@ -20,6 +20,12 @@ use tokio::time::{self, Duration};
 
 pub struct IpCommand;
 
+impl Default for IpCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IpCommand {
     pub fn new() -> Self {
         IpCommand
@@ -34,10 +40,10 @@ impl IpCommand {
         }
         let output = Command::new("ip").args(args).output()?;
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("ip command failed: {:?}", output.status),
-            ));
+            return Err(io::Error::other(format!(
+                "ip command failed: {:?}",
+                output.status
+            )));
         }
         Ok(output)
     }
