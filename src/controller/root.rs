@@ -125,13 +125,14 @@ impl ControllerInner {
             .map(|addr| addr.address.clone())
     }
 
-    fn get_local_node_ip() -> Option<String> {
+    async fn get_local_node_ip() -> Option<String> {
         let hostname = std::env::var("HOSTNAME").ok()?;
-        let client = Client::try_default().ok()?;
+        let client = Client::try_default().await.ok()?;
         let nodes: Api<Node> = Api::all(client);
 
         nodes
             .list(&Default::default())
+            .await
             .ok()?
             .into_iter()
             .find(|n| n.metadata.name == hostname)
@@ -199,7 +200,7 @@ impl ControllerInner {
                     return;
                 }
 
-                match Self::get_local_node_ip() {
+                match Self::get_local_node_ip().await {
                     Some(local_ip) => {
                         if let Ok(output) = Self::run_ip_command(&[
                             "tunnel",
