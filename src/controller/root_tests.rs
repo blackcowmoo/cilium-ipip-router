@@ -231,4 +231,112 @@ mod tests {
 
         assert_eq!(builder.cmd_rx.len(), 2);
     }
+
+    #[test]
+    fn test_get_tunnel_name_short() {
+        let node_name = "node-1";
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
+        assert_eq!(tunnel_name, "tun-d50164b9587");
+        assert!(tunnel_name.len() <= 15);
+    }
+
+    #[test]
+    fn test_get_tunnel_name_long() {
+        let node_name = "very-long-node-name-that-exceeds-limit";
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
+        assert_eq!(tunnel_name, "tun-743e7336877");
+        assert!(tunnel_name.len() <= 15);
+    }
+
+    #[test]
+    fn test_get_tunnel_name_exact_length() {
+        let node_name = "exactly10chars";
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
+        assert_eq!(tunnel_name, "tun-15754261d2f");
+        assert!(tunnel_name.len() <= 15);
+    }
+
+    #[test]
+    fn test_get_node_ip_with_external_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: Some(vec![
+                    k8s_openapi::api::core::v1::NodeAddress {
+                        type_: "ExternalIP".to_string(),
+                        address: "203.0.113.1".to_string(),
+                    },
+                    k8s_openapi::api::core::v1::NodeAddress {
+                        type_: "InternalIP".to_string(),
+                        address: "10.0.0.1".to_string(),
+                    },
+                ]),
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, Some("203.0.113.1".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_ip_with_internal_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: Some(vec![k8s_openapi::api::core::v1::NodeAddress {
+                    type_: "InternalIP".to_string(),
+                    address: "10.0.0.1".to_string(),
+                }]),
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, Some("10.0.0.1".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_ip_no_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: Some(vec![]),
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, None);
+    }
+
+    #[test]
+    fn test_get_node_ip_no_status() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: None,
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, None);
+    }
+
+    #[test]
+    fn test_get_node_ip_no_addresses() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: None,
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, None);
+    }
 }
