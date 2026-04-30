@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn test_get_tunnel_name_short() {
         let node_name = "node-1";
-        let tunnel_name = super::ControllerInner::get_tunnel_name(node_name);
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
         assert_eq!(tunnel_name, "tun-node-1");
         assert!(tunnel_name.len() <= 15);
     }
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_get_tunnel_name_long() {
         let node_name = "very-long-node-name-that-exceeds-limit";
-        let tunnel_name = super::ControllerInner::get_tunnel_name(node_name);
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
         assert_eq!(tunnel_name, "tun-very-long-n");
         assert!(tunnel_name.len() <= 15);
     }
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn test_get_tunnel_name_exact_length() {
         let node_name = "exactly10chars";
-        let tunnel_name = super::ControllerInner::get_tunnel_name(node_name);
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
         assert_eq!(tunnel_name, "tun-exactly10c");
         assert!(tunnel_name.len() <= 15);
     }
@@ -276,7 +276,7 @@ mod tests {
             }),
         };
 
-        let node_ip = super::ControllerInner::get_node_ip(&node);
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
         assert_eq!(node_ip, Some("203.0.113.1".to_string()));
     }
 
@@ -294,7 +294,7 @@ mod tests {
             }),
         };
 
-        let node_ip = super::ControllerInner::get_node_ip(&node);
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
         assert_eq!(node_ip, Some("10.0.0.1".to_string()));
     }
 
@@ -309,7 +309,7 @@ mod tests {
             }),
         };
 
-        let node_ip = super::ControllerInner::get_node_ip(&node);
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
         assert_eq!(node_ip, None);
     }
 
@@ -321,7 +321,7 @@ mod tests {
             status: None,
         };
 
-        let node_ip = super::ControllerInner::get_node_ip(&node);
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
         assert_eq!(node_ip, None);
     }
 
@@ -336,7 +336,7 @@ mod tests {
             }),
         };
 
-        let node_ip = super::ControllerInner::get_node_ip(&node);
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
         assert_eq!(node_ip, None);
     }
 }
