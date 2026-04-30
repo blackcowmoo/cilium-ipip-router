@@ -8,6 +8,7 @@ use kube::{
     client::Client,
     ResourceExt,
 };
+use md5::Md5;
 use std::{
     future::Future,
     io,
@@ -16,7 +17,6 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::time::{self, Duration};
-use md5::Md5;
 
 // #[derive(CustomResource, Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 // #[kube(group = "cilium.io", version = "v2", kind = "CiliumEndpoint", namespaced)]
