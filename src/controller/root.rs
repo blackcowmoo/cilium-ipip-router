@@ -18,6 +18,19 @@ use std::{
 };
 use tokio::time::{self, Duration};
 
+struct IpCommand;
+
+impl IpCommand {
+    fn new() -> Self {
+        IpCommand
+    }
+
+    fn run(&self, args: &[&str]) -> io::Result<()> {
+        Command::new("ip").args(args).output()?;
+        Ok(())
+    }
+}
+
 // #[derive(CustomResource, Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 // #[kube(group = "cilium.io", version = "v2", kind = "CiliumEndpoint", namespaced)]
 // pub struct CiliumEndpointSpec {
@@ -76,14 +89,11 @@ impl ControllerInner {
     }
 
     fn run_ip_command(args: &[&str]) -> io::Result<()> {
-        Command::new("ip").args(args).output()?;
-        Ok(())
+        IpCommand::new().run(args)
     }
 
     fn tunnel_exists(tunnel_name: &str) -> io::Result<bool> {
-        let output = Command::new("ip")
-            .args(["tunnel", "show", tunnel_name])
-            .output()?;
+        let output = IpCommand::new().run(&["tunnel", "show", tunnel_name])?;
         Ok(output.status.success())
     }
 
