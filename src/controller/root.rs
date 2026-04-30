@@ -64,10 +64,10 @@ pub async fn run() -> Controller {
     Controller::new(Controller::builder())
 }
 
-struct ControllerInner {}
+pub struct ControllerInner {}
 
 impl ControllerInner {
-    fn get_tunnel_name(node_name: &str) -> String {
+    pub fn get_tunnel_name(node_name: &str) -> String {
         let truncated_name = if node_name.len() > 10 {
             &node_name[0..10]
         } else {
@@ -81,7 +81,7 @@ impl ControllerInner {
         Ok(())
     }
 
-    fn get_node_ip(node: &Node) -> Option<String> {
+    pub fn get_node_ip(node: &Node) -> Option<String> {
         node.status
             .as_ref()?
             .addresses
