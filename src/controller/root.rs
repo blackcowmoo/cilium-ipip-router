@@ -25,7 +25,7 @@ impl IpCommand {
         IpCommand
     }
 
- pub fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
+    pub fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
         if args.is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
