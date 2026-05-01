@@ -120,7 +120,10 @@ impl ControllerInner {
         IpCommand::new().run(args)
     }
 
-    pub fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
+    pub fn tunnel_exists<T: IpCommandExecutor>(
+        executor: &T,
+        tunnel_name: &str,
+    ) -> io::Result<bool> {
         let output = executor.run(&["tunnel", "show", tunnel_name])?;
         Ok(output.status.success())
     }
