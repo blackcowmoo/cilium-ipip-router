@@ -208,7 +208,7 @@ impl ControllerInner {
         let node_cidr = Self::get_node_cidr(&node);
 
         match node_ip {
-            Some(ip) => {
+            Some(ref ip) => {
                 let tunnel_name = Self::get_tunnel_name(&node_name);
 
                 if let Ok(true) = Self::tunnel_exists(executor, &tunnel_name) {
