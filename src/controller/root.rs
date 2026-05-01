@@ -258,13 +258,7 @@ impl ControllerInner {
                 }
 
                 if let Some(cidr) = node_cidr {
-                    if let Ok(output) = executor.run(&[
-                        "route",
-                        "add",
-                        &cidr,
-                        "via",
-                        &node_ip,
-                    ]) {
+                    if let Ok(output) = executor.run(&["route", "add", &cidr, "via", &node_ip]) {
                         if output.status.success() {
                             log::info!(
                                 "Added route for node {} CIDR {} via IP {}",
@@ -305,13 +299,7 @@ impl ControllerInner {
         let tunnel_name = Self::get_tunnel_name(&node_name);
 
         if let Some(cidr) = node_cidr {
-            if let Ok(output) = executor.run(&[
-                "route",
-                "del",
-                &cidr,
-                "via",
-                &node_ip,
-            ]) {
+            if let Ok(output) = executor.run(&["route", "del", &cidr, "via", &node_ip]) {
                 if output.status.success() {
                     log::info!(
                         "Deleted route for node {} CIDR {} via IP {}",
