@@ -6,6 +6,8 @@ use std::io;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::controller::root::{self, IpCommand, IpCommandExecutor};
+#[cfg(test)]
+use crate::controller::MockIpCommandExecutor;
 
 #[cfg(test)]
 mod tests {
