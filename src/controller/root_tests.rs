@@ -3,6 +3,7 @@ use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
 use std::io;
+use std::os::unix::process::ExitStatusExt;
 use std::process::Output;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -51,6 +52,7 @@ mod tests {
                 Ok(std::process::Output {
                     stdout: self.stdout.clone(),
                     stderr: self.stderr.clone(),
+                    status: std::process::ExitStatus::from_raw(0),
                 })
             } else {
                 Err(io::Error::new(io::ErrorKind::Other, "ip command failed"))
