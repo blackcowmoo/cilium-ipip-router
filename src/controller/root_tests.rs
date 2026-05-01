@@ -391,9 +391,7 @@ mod tests {
         let mut mock_executor = MockIpCommandExecutor::new();
         mock_executor
             .expect_run()
-            .withf(|args| {
-                args == &["tunnel", "show", "tun-test123"]
-            })
+            .withf(|args| args == &["tunnel", "show", "tun-test123"])
             .returning(|_| {
                 Ok(std::process::Output {
                     status: std::process::ExitStatus::default(),
@@ -412,9 +410,7 @@ mod tests {
         let mut mock_executor = MockIpCommandExecutor::new();
         mock_executor
             .expect_run()
-            .withf(|args| {
-                args == &["tunnel", "show", "tun-test123"]
-            })
+            .withf(|args| args == &["tunnel", "show", "tun-test123"])
             .returning(|_| {
                 Ok(std::process::Output {
                     status: std::process::ExitStatus::default(),
@@ -433,15 +429,8 @@ mod tests {
         let mut mock_executor = MockIpCommandExecutor::new();
         mock_executor
             .expect_run()
-            .withf(|args| {
-                args == &["tunnel", "show", "tun-test123"]
-            })
-            .returning(|_| {
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "command failed",
-                ))
-            });
+            .withf(|args| args == &["tunnel", "show", "tun-test123"])
+            .returning(|_| Err(io::Error::new(io::ErrorKind::Other, "command failed")));
 
         let result = root::ControllerInner::tunnel_exists(&mock_executor, "tun-test123");
         assert!(result.is_err());
