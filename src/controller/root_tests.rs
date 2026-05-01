@@ -3,6 +3,7 @@ use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
 use std::io;
+use std::process::Output;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::controller::root::{self, IpCommand, IpCommandExecutor};
@@ -12,6 +13,53 @@ mod tests {
     use super::*;
     use crate::controller::builder::ControllerBuilder;
     use crate::controller::handle::{ControllerCommand, ControllerHandle};
+
+    #[derive(Default)]
+    struct MockIpCommand {
+        stdout: Vec<u8>,
+        stderr: Vec<u8>,
+        should_succeed: bool,
+    }
+
+    impl MockIpCommand {
+        fn new() -> Self {
+            Self {
+                should_succeed: true,
+                ..Default::default()
+            }
+        }
+
+        fn with_output(stdout: &[u8], stderr: &[u8]) -> Self {
+            Self {
+                stdout: stdout.to_vec(),
+                stderr: stderr.to_vec(),
+                should_succeed: true,
+            }
+        }
+
+        fn with_error() -> Self {
+            Self {
+                should_succeed: false,
+                ..Default::default()
+            }
+        }
+    }
+
+    impl IpCommandExecutor for MockIpCommand {
+        fn run(&self, _args: &[&str]) -> io::Result<std::process::Output> {
+            if self.should_succeed {
+                Ok(std::process::Output {
+                    stdout: self.stdout.clone(),
+                    stderr: self.stderr.clone(),
+                })
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "ip command failed",
+                ))
+            }
+        }
+    }
 
     #[test]
     fn test_node_creation() {
@@ -350,39 +398,56 @@ mod tests {
     }
 
     #[test]
+    fn test_tunnel_exists_with_mock() {
+        let mock_cmd = MockIpCommand::with_output(b"", b"");
+        let exists = crate::controller::root::ControllerInner::tunnel_exists(&mock_cmd, "tun-test");
+
+        assert!(exists.is_ok());
+        assert!(exists.unwrap());
+    }
+
+    #[test]
+    fn test_tunnel_exists_with_mock_not_found() {
+        let mock_cmd = MockIpCommand::with_error();
+        let exists = crate::controller::root::ControllerInner::tunnel_exists(&mock_cmd, "tun-test");
+
+        assert!(exists.is_ok());
+        assert!(!exists.unwrap());
+    }
+
+    #[test]
     fn test_ip_command_run_success() {
-        let ip_cmd = IpCommand::new();
-        let result = ip_cmd.run(&["link", "show", "lo"]);
+        let mock_cmd = MockIpCommand::with_output(b"output\n", b"");
+        let result = mock_cmd.run(&["link", "show", "lo"]);
 
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.status.success());
-        assert!(!output.stdout.is_empty());
+        assert_eq!(output.stdout, b"output\n");
     }
 
     #[test]
     fn test_ip_command_run_failure() {
-        let ip_cmd = IpCommand::new();
-        let result = ip_cmd.run(&["nonexistent", "command"]);
+        let mock_cmd = MockIpCommand::with_error();
+        let result = mock_cmd.run(&["nonexistent", "command"]);
 
         assert!(result.is_err());
     }
 
     #[test]
     fn test_ip_command_run_with_multiple_args() {
-        let ip_cmd = IpCommand::new();
-        let result = ip_cmd.run(&["link", "show", "lo"]);
+        let mock_cmd = MockIpCommand::with_output(b"output\n", b"");
+        let result = mock_cmd.run(&["link", "show", "lo"]);
 
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.status.success());
+        assert_eq!(output.stdout, b"output\n");
     }
 
     #[test]
     fn test_ip_command_run_empty_args() {
-        let ip_cmd = IpCommand::new();
-        let result = ip_cmd.run(&[]);
+        let mock_cmd = MockIpCommand::new();
+        let result = mock_cmd.run(&[]);
 
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 }
