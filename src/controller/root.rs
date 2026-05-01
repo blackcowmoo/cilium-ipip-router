@@ -227,7 +227,7 @@ impl ControllerInner {
                             "local",
                             &local_ip,
                             "remote",
-                            &ip,
+                            ip,
                         ]) {
                             if !output.status.success() {
                                 log::error!(
