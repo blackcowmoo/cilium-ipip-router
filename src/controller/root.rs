@@ -116,8 +116,10 @@ impl ControllerInner {
         executor: &T,
         tunnel_name: &str,
     ) -> io::Result<bool> {
-        let output = executor.run(&["tunnel", "show", tunnel_name])?;
-        Ok(output.status.success())
+        match executor.run(&["tunnel", "show", tunnel_name]) {
+            Ok(output) => Ok(output.status.success()),
+            Err(_) => Ok(false),
+        }
     }
 
     pub fn get_node_ip(node: &Node) -> Option<String> {
