@@ -112,10 +112,6 @@ impl ControllerInner {
         format!("tun-{}", truncated_hash)
     }
 
-    fn run_ip_command(args: &[&str]) -> io::Result<std::process::Output> {
-        IpCommand::new().run(args)
-    }
-
     pub fn tunnel_exists<T: IpCommandExecutor>(
         executor: &T,
         tunnel_name: &str,
