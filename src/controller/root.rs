@@ -18,6 +18,14 @@ use std::{
 };
 use tokio::time::{self, Duration};
 
+pub trait IpCommandExecutor {
+    fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
+}
+
+#[cfg(test)]
+use mockall::automock;
+
+#[cfg_attr(test, automock)]
 pub struct IpCommand;
 
 impl Default for IpCommand {
@@ -30,8 +38,10 @@ impl IpCommand {
     pub fn new() -> Self {
         IpCommand
     }
+}
 
-    pub fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
+impl IpCommandExecutor for IpCommand {
+    fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
         if args.is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -110,8 +120,8 @@ impl ControllerInner {
         IpCommand::new().run(args)
     }
 
-    fn tunnel_exists(tunnel_name: &str) -> io::Result<bool> {
-        let output = IpCommand::new().run(&["tunnel", "show", tunnel_name])?;
+    fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
+        let output = executor.run(&["tunnel", "show", tunnel_name])?;
         Ok(output.status.success())
     }
 
@@ -188,6 +198,10 @@ impl ControllerInner {
     }
 
     async fn update_route(node: Node) {
+        Self::update_route_with_executor(node, &IpCommand::new()).await
+    }
+
+    async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {
         let node_name = node.name_any();
         let node_ip = Self::get_node_ip(&node);
 
@@ -195,14 +209,14 @@ impl ControllerInner {
             Some(ip) => {
                 let tunnel_name = Self::get_tunnel_name(&node_name);
 
-                if let Ok(true) = Self::tunnel_exists(&tunnel_name) {
+                if let Ok(true) = Self::tunnel_exists(executor, &tunnel_name) {
                     log::info!("Tunnel {} already exists, skipping creation", tunnel_name);
                     return;
                 }
 
                 match Self::get_local_node_ip().await {
                     Some(local_ip) => {
-                        if let Ok(output) = Self::run_ip_command(&[
+                        if let Ok(output) = executor.run(&[
                             "tunnel",
                             "add",
                             &tunnel_name,
@@ -248,10 +262,14 @@ impl ControllerInner {
     }
 
     async fn delete_route(node: Node) {
+        Self::delete_route_with_executor(node, &IpCommand::new()).await
+    }
+
+    async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {
         let node_name = node.name_any();
         let tunnel_name = Self::get_tunnel_name(&node_name);
 
-        if let Ok(output) = Self::run_ip_command(&["tunnel", "del", &tunnel_name]) {
+        if let Ok(output) = executor.run(&["tunnel", "del", &tunnel_name]) {
             if output.status.success() {
                 log::info!("Deleted IPIP tunnel {} for node {}", tunnel_name, node_name);
             } else {

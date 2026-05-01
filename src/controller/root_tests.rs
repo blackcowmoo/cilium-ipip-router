@@ -2,9 +2,10 @@ use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
+use std::io;
 use tokio::sync::mpsc::unbounded_channel;
 
-use crate::controller::root::IpCommand;
+use crate::controller::root::{self, IpCommand, IpCommandExecutor};
 
 #[cfg(test)]
 mod tests {
@@ -382,6 +383,67 @@ mod tests {
         let ip_cmd = IpCommand::new();
         let result = ip_cmd.run(&[]);
 
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tunnel_exists_with_mock() {
+        let mut mock_executor = MockIpCommandExecutor::new();
+        mock_executor
+            .expect_run()
+            .withf(|args| {
+                args == &["tunnel", "show", "tun-test123"]
+            })
+            .returning(|_| {
+                Ok(std::process::Output {
+                    status: std::process::ExitStatus::default(),
+                    stdout: b"test output".to_vec(),
+                    stderr: Vec::new(),
+                })
+            });
+
+        let result = root::ControllerInner::tunnel_exists(&mock_executor, "tun-test123");
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_tunnel_not_exists_with_mock() {
+        let mut mock_executor = MockIpCommandExecutor::new();
+        mock_executor
+            .expect_run()
+            .withf(|args| {
+                args == &["tunnel", "show", "tun-test123"]
+            })
+            .returning(|_| {
+                Ok(std::process::Output {
+                    status: std::process::ExitStatus::default(),
+                    stdout: Vec::new(),
+                    stderr: Vec::new(),
+                })
+            });
+
+        let result = root::ControllerInner::tunnel_exists(&mock_executor, "tun-test123");
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn test_tunnel_exists_error_with_mock() {
+        let mut mock_executor = MockIpCommandExecutor::new();
+        mock_executor
+            .expect_run()
+            .withf(|args| {
+                args == &["tunnel", "show", "tun-test123"]
+            })
+            .returning(|_| {
+                Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "command failed",
+                ))
+            });
+
+        let result = root::ControllerInner::tunnel_exists(&mock_executor, "tun-test123");
         assert!(result.is_err());
     }
 }
