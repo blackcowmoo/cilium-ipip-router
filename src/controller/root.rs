@@ -21,7 +21,7 @@ use tokio::time::{self, Duration};
 #[cfg(test)]
 use mockall::automock;
 
-#[automock]
+#[cfg_attr(test, automock)]
 pub trait IpCommandExecutor {
     fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
 }
