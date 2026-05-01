@@ -53,10 +53,7 @@ mod tests {
                     stderr: self.stderr.clone(),
                 })
             } else {
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "ip command failed",
-                ))
+                Err(io::Error::new(io::ErrorKind::Other, "ip command failed"))
             }
         }
     }
