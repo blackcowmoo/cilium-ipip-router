@@ -391,6 +391,47 @@ mod tests {
     }
 
     #[test]
+    fn test_get_node_cidr() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Some(k8s_openapi::api::core::v1::NodeSpec {
+                pod_cidr: Some("10.0.0.0/24".to_string()),
+                ..Default::default()
+            }),
+            status: None,
+        };
+
+        let node_cidr = crate::controller::root::ControllerInner::get_node_cidr(&node);
+        assert_eq!(node_cidr, Some("10.0.0.0/24".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_cidr_no_spec() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: None,
+        };
+
+        let node_cidr = crate::controller::root::ControllerInner::get_node_cidr(&node);
+        assert_eq!(node_cidr, None);
+    }
+
+    #[test]
+    fn test_get_node_cidr_no_cidr() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Some(k8s_openapi::api::core::v1::NodeSpec {
+                ..Default::default()
+            }),
+            status: None,
+        };
+
+        let node_cidr = crate::controller::root::ControllerInner::get_node_cidr(&node);
+        assert_eq!(node_cidr, None);
+    }
+
+    #[test]
     fn test_ip_command_new() {
         let ip_cmd = IpCommand::new();
         assert!(matches!(ip_cmd, IpCommand));

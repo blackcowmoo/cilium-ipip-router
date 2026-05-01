@@ -132,6 +132,10 @@ impl ControllerInner {
             .map(|addr| addr.address.clone())
     }
 
+    pub fn get_node_cidr(node: &Node) -> Option<String> {
+        node.spec.as_ref()?.pod_cidr.clone()
+    }
+
     async fn get_local_node_ip() -> Option<String> {
         let hostname = std::env::var("HOSTNAME").ok()?;
         let client = Client::try_default().await.ok()?;
@@ -201,6 +205,7 @@ impl ControllerInner {
     async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {
         let node_name = node.name_any();
         let node_ip = Self::get_node_ip(&node);
+        let node_cidr = Self::get_node_cidr(&node);
 
         match node_ip {
             Some(ip) => {
@@ -251,6 +256,37 @@ impl ControllerInner {
                         );
                     }
                 }
+
+                if let Some(cidr) = node_cidr {
+                    if let Ok(output) = executor.run(&[
+                        "route",
+                        "add",
+                        &cidr,
+                        "via",
+                        &node_ip,
+                    ]) {
+                        if output.status.success() {
+                            log::info!(
+                                "Added route for node {} CIDR {} via IP {}",
+                                node_name,
+                                cidr,
+                                node_ip
+                            );
+                        } else {
+                            log::error!(
+                                "Failed to add route for node {} CIDR {}: command failed",
+                                node_name,
+                                cidr
+                            );
+                        }
+                    } else {
+                        log::error!(
+                            "Failed to add route for node {} CIDR {}: command error",
+                            node_name,
+                            cidr
+                        );
+                    }
+                }
             }
             None => {
                 log::warn!("No IP address found for node {}", node_name);
@@ -264,7 +300,40 @@ impl ControllerInner {
 
     async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {
         let node_name = node.name_any();
+        let node_ip = Self::get_node_ip(&node);
+        let node_cidr = Self::get_node_cidr(&node);
         let tunnel_name = Self::get_tunnel_name(&node_name);
+
+        if let Some(cidr) = node_cidr {
+            if let Ok(output) = executor.run(&[
+                "route",
+                "del",
+                &cidr,
+                "via",
+                &node_ip,
+            ]) {
+                if output.status.success() {
+                    log::info!(
+                        "Deleted route for node {} CIDR {} via IP {}",
+                        node_name,
+                        cidr,
+                        node_ip
+                    );
+                } else {
+                    log::error!(
+                        "Failed to delete route for node {} CIDR {}: command failed",
+                        node_name,
+                        cidr
+                    );
+                }
+            } else {
+                log::error!(
+                    "Failed to delete route for node {} CIDR {}: command error",
+                    node_name,
+                    cidr
+                );
+            }
+        }
 
         if let Ok(output) = executor.run(&["tunnel", "del", &tunnel_name]) {
             if output.status.success() {
