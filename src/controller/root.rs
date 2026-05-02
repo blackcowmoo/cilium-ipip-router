@@ -22,11 +22,11 @@ pub struct Controller {
 
 impl Controller {
     /// Create server build.
-    pub(crate) fn builder() -> ControllerBuilder {
+    pub fn builder() -> ControllerBuilder {
         ControllerBuilder::default()
     }
 
-    pub(crate) fn new(builder: ControllerBuilder) -> Self {
+    pub fn new(builder: ControllerBuilder) -> Self {
         Controller {
             handle: ControllerHandle::new(builder.cmd_tx.clone()),
             fut: Box::pin(ControllerInner::watch(builder)),
