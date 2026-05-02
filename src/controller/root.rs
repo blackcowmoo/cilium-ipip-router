@@ -83,7 +83,7 @@ impl ControllerInner {
             Err(e) => {
                 log::error!("failed to create kube Client: {}", e);
                 return Err(io::Error::new(
-                    io::ErrorKind::ConnectionFailed,
+                    io::ErrorKind::ConnectionRefused,
                     "Kubernetes client unavailable",
                 ));
             }
@@ -96,7 +96,7 @@ impl ControllerInner {
             Err(e) => {
                 log::error!("failed to watch nodes: {}", e);
                 return Err(io::Error::new(
-                    io::ErrorKind::ConnectionFailed,
+                    io::ErrorKind::ConnectionRefused,
                     "Kubernetes watch unavailable",
                 ));
             }
