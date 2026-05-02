@@ -1,5 +1,5 @@
 use k8s_openapi::api::core::v1::Node;
-use kube::{Api, Client};
+use kube::{Api, Client, api::WatchParams};
 
 #[tokio::test]
 async fn test_controller_connectivity() -> anyhow::Result<()> {
@@ -26,7 +26,7 @@ async fn test_node_watch_connection() -> anyhow::Result<()> {
 
     let nodes: Api<Node> = Api::all(client.clone());
 
-    let lp = kube::api::ListParams::default();
+    let lp = WatchParams::default();
 
     let _stream = nodes.watch(&lp, "0").await.inspect_err(|e| {
         log::error!("Failed to setup watch stream: {}", e);
