@@ -1,14 +1,10 @@
 pub use k8s_openapi::api::core::v1::Node;
 use kube::client::Client;
-use std::{
-    future::Future,
-    io,
-    pin::Pin,
-    process::Command,
-    task::{Context, Poll},
-};
+use kube::ResourceExt;
+use std::io;
+use std::process::Command;
 
-use crate::controller::root::ControllerInner;
+
 
 pub trait IpCommandExecutor {
     fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
