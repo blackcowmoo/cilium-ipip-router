@@ -8,6 +8,10 @@ doc = false
 name = "router"
 path = "src/main.rs"
 
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
 [dependencies]
 actix-web = "4.9.0"
 anyhow = "1.0.89"

@@ -1,0 +1,108 @@
+name: kind-integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  kind-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster --name cilium-router-test
+
+      - name: Build Docker image
+        run: docker build -t cilium-ipip-router:test .
+
+      - name: Load image into kind cluster
+        run: kind load docker-image cilium-ipip-router:test --name cilium-router-test
+
+      - name: Deploy controller
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: cilium-ipip-router
+            namespace: default
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: cilium-ipip-router
+          rules:
+            - apiGroups: [""]
+              resources: ["nodes"]
+              verbs: ["get", "watch", "list"]
+            - apiGroups: [""]
+              resources: ["pods"]
+              verbs: ["get", "list", "watch"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: cilium-ipip-router
+          subjects:
+            - kind: ServiceAccount
+              name: cilium-ipip-router
+              namespace: default
+          roleRef:
+            kind: ClusterRole
+            name: cilium-ipip-router
+            apiGroup: rbac.authorization.k8s.io
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: cilium-ipip-router
+            namespace: default
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: cilium-ipip-router
+            template:
+              metadata:
+                labels:
+                  app: cilium-ipip-router
+              spec:
+                serviceAccountName: cilium-ipip-router
+                containers:
+                  - name: router
+                    image: cilium-ipip-router:test
+                    imagePullPolicy: Never
+                    securityContext:
+                      capabilities:
+                        add: ["NET_ADMIN", "SYS_ADMIN"]
+                      privileged: true
+                    command:
+                      - /usr/local/bin/router
+          EOF
+
+      - name: Wait for deployment to be ready
+        run: |
+          kubectl rollout status deployment/cilium-ipip-router --timeout=120s
+
+      - name: Run integration tests
+        run: |
+          cargo test --target x86_64-unknown-linux-gnu --test integration_tests
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          kubectl logs deployment/cilium-ipip-router
+          kind export logs --name cilium-router-test ./kind-logs || true
+
+      - name: Delete kind cluster
+        run: kind delete cluster --name cilium-router-test
