@@ -4,8 +4,6 @@ use kube::ResourceExt;
 use std::io;
 use std::process::Command;
 
-
-
 pub trait IpCommandExecutor {
     fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
 }
