@@ -258,7 +258,8 @@ impl ControllerInner {
                 }
 
                 if let (Some(cidr), Some(ip)) = (node_cidr, node_ip) {
-                    if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name]) {
+                    if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name])
+                    {
                         if output.status.success() {
                             log::info!(
                                 "Added route for node {} CIDR {} via tunnel {}",
