@@ -1,7 +1,5 @@
 use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
-use crate::controller::ipip::{
-    delete_route_with_executor, update_route_with_executor, IpCommand, IpCommandExecutor, Node,
-};
+use crate::controller::ipip::{delete_route_with_executor, update_route_with_executor, IpCommand, Node};
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
@@ -9,7 +7,10 @@ use kube::{
     api::{Api, WatchEvent, WatchParams},
     client::Client,
 };
+use std::future::Future;
 use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio::time::{self, Duration};
 
 pub struct Controller {
