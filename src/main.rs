@@ -2,6 +2,7 @@
 use actix_web::{
     get, middleware, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use cilium_ipip_router::controller::ControllerHandle;
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::broadcast,
@@ -17,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
     log4rs::init_file("resources/log4rs.yaml", Default::default()).unwrap();
 
     let builder = cilium_ipip_router::controller::Controller::builder();
-    let controller_handle = builder.cmd_tx.clone();
+    let controller_handle = ControllerHandle::new(builder.cmd_tx.clone());
 
     let controller_task = tokio::spawn(async move {
         let controller = cilium_ipip_router::controller::Controller::new(builder);
