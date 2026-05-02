@@ -90,16 +90,26 @@ pub fn route_exists<T: IpCommandExecutor>(
 
 pub async fn get_local_node_ip() -> Option<String> {
     let hostname = std::env::var("HOSTNAME").ok()?;
-    let client = Client::try_default().await.ok()?;
-    let nodes: kube::Api<Node> = kube::Api::all(client);
+    match Client::try_default().await {
+        Ok(client) => {
+            let nodes: kube::Api<Node> = kube::Api::all(client);
 
-    nodes
-        .list(&Default::default())
-        .await
-        .ok()?
-        .into_iter()
-        .find(|n| n.metadata.name.as_deref() == Some(hostname.as_str()))
-        .and_then(|node| get_node_ip(&node))
+            match nodes.list(&Default::default()).await {
+                Ok(node_list) => node_list
+                    .into_iter()
+                    .find(|n| n.metadata.name.as_deref() == Some(hostname.as_str()))
+                    .and_then(|node| get_node_ip(&node)),
+                Err(e) => {
+                    log::warn!("Failed to list nodes: {}", e);
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("Failed to create Kubernetes client: {}", e);
+            None
+        }
+    }
 }
 
 pub async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {

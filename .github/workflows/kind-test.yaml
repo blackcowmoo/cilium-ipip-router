@@ -88,6 +88,20 @@ jobs:
                       privileged: true
                     command:
                       - /usr/local/bin/router
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 9090
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+                      timeoutSeconds: 3
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 9090
+                      initialDelaySeconds: 15
+                      periodSeconds: 10
+                      timeoutSeconds: 5
           EOF
 
       - name: Wait for deployment to be ready

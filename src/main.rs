@@ -17,6 +17,7 @@ async fn main() -> anyhow::Result<()> {
     log4rs::init_file("resources/log4rs.yaml", Default::default()).unwrap();
 
     let controller = cilium_ipip_router::controller::run().await;
+    let controller_handle = controller.handle();
 
     // Start web server
     let server = HttpServer::new(move || {
@@ -29,7 +30,6 @@ async fn main() -> anyhow::Result<()> {
     .run();
 
     let server_handle = server.handle();
-    let controller_handle = controller.handle();
 
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
     let mut sigint = signal(SignalKind::interrupt()).unwrap();

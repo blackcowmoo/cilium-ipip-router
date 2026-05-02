@@ -78,17 +78,23 @@ impl ControllerInner {
     }
 
     pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
-        let client = Client::try_default()
-            .await
-            .expect("failed to create kube Client");
+        let client = match Client::try_default().await {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("failed to create kube Client: {}", e);
+                return Err(io::Error::new(io::ErrorKind::ConnectionFailed, "Kubernetes client unavailable"));
+            }
+        };
         let nodes: Api<Node> = Api::all(client);
         let lp = WatchParams::default();
 
-        let mut stream = nodes
-            .watch(&lp, "0")
-            .await
-            .expect("failed to watch nodes")
-            .boxed();
+        let mut stream = match nodes.watch(&lp, "0").await {
+            Ok(s) => s.boxed(),
+            Err(e) => {
+                log::error!("failed to watch nodes: {}", e);
+                return Err(io::Error::new(io::ErrorKind::ConnectionFailed, "Kubernetes watch unavailable"));
+            }
+        };
 
         let mut tick = time::interval(Duration::from_secs(1));
 
