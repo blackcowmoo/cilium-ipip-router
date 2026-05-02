@@ -82,7 +82,10 @@ impl ControllerInner {
             Ok(c) => c,
             Err(e) => {
                 log::error!("failed to create kube Client: {}", e);
-                return Err(io::Error::new(io::ErrorKind::ConnectionFailed, "Kubernetes client unavailable"));
+                return Err(io::Error::new(
+                    io::ErrorKind::ConnectionFailed,
+                    "Kubernetes client unavailable",
+                ));
             }
         };
         let nodes: Api<Node> = Api::all(client);
@@ -92,7 +95,10 @@ impl ControllerInner {
             Ok(s) => s.boxed(),
             Err(e) => {
                 log::error!("failed to watch nodes: {}", e);
-                return Err(io::Error::new(io::ErrorKind::ConnectionFailed, "Kubernetes watch unavailable"));
+                return Err(io::Error::new(
+                    io::ErrorKind::ConnectionFailed,
+                    "Kubernetes watch unavailable",
+                ));
             }
         };
 
