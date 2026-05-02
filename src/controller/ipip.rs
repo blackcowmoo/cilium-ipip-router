@@ -1,6 +1,12 @@
 pub use k8s_openapi::api::core::v1::Node;
 use kube::client::Client;
-use std::{future::Future, io, pin::Pin, process::Command, task::{Context, Poll}};
+use std::{
+    future::Future,
+    io,
+    pin::Pin,
+    process::Command,
+    task::{Context, Poll},
+};
 
 use crate::controller::root::ControllerInner;
 
@@ -49,10 +55,7 @@ pub fn get_tunnel_name(node_name: &str) -> String {
     format!("tun-{}", truncated_hash)
 }
 
-pub fn tunnel_exists<T: IpCommandExecutor>(
-    executor: &T,
-    tunnel_name: &str,
-) -> io::Result<bool> {
+pub fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
     match executor.run(&["tunnel", "show", tunnel_name]) {
         Ok(output) => Ok(output.status.success()),
         Err(_) => Ok(false),

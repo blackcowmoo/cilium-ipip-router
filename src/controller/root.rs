@@ -1,5 +1,8 @@
 use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
-use crate::controller::ipip::{get_local_node_ip, update_route_with_executor, delete_route_with_executor, IpCommand, IpCommandExecutor, Node};
+use crate::controller::ipip::{
+    delete_route_with_executor, get_local_node_ip, update_route_with_executor, IpCommand,
+    IpCommandExecutor, Node,
+};
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
