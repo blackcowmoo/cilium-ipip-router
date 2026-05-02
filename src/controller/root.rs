@@ -261,7 +261,7 @@ impl ControllerInner {
                 }
 
                 if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
-                    match Self::route_exists(executor, cidr, tunnel_name) {
+                    match Self::route_exists(executor, &cidr, &tunnel_name) {
                         Ok(true) => {
                             log::info!(
                                 "Route for node {} CIDR {} via tunnel {} already exists",
