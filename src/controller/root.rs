@@ -209,12 +209,7 @@ impl ControllerInner {
 
         match node_ip {
             Some(ref ip) => {
-                let tunnel_name = Self::get_tunnel_name(&node_name);
-
-                if let Ok(true) = Self::tunnel_exists(executor, &tunnel_name) {
-                    log::info!("Tunnel {} already exists, skipping creation", tunnel_name);
-                    return;
-                }
+               let tunnel_name = Self::get_tunnel_name(&node_name);
 
                 match Self::get_local_node_ip().await {
                     Some(local_ip) => {
@@ -234,20 +229,10 @@ impl ControllerInner {
                                     "Failed to create tunnel {}: command failed",
                                     tunnel_name
                                 );
-                                return;
                             }
                         } else {
                             log::error!("Failed to create tunnel {}: command error", tunnel_name);
-                            return;
                         }
-
-                        log::info!(
-                            "Created IPIP tunnel {} for node {} with local IP {} and remote IP {}",
-                            tunnel_name,
-                            node_name,
-                            local_ip,
-                            ip
-                        );
                     }
                     None => {
                         log::warn!(
