@@ -209,7 +209,7 @@ impl ControllerInner {
 
         match node_ip {
             Some(ref ip) => {
-               let tunnel_name = Self::get_tunnel_name(&node_name);
+                let tunnel_name = Self::get_tunnel_name(&node_name);
 
                 match Self::get_local_node_ip().await {
                     Some(local_ip) => {
