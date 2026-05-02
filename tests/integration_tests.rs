@@ -1,5 +1,5 @@
 use k8s_openapi::api::core::v1::Node;
-use kube::{Api, Client, api::WatchParams};
+use kube::{api::WatchParams, Api, Client};
 
 #[tokio::test]
 async fn test_controller_connectivity() -> anyhow::Result<()> {
