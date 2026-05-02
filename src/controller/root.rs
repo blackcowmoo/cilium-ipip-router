@@ -136,6 +136,24 @@ impl ControllerInner {
         node.spec.as_ref()?.pod_cidr.clone()
     }
 
+    pub fn route_exists<T: IpCommandExecutor>(
+        executor: &T,
+        cidr: &str,
+        tunnel_name: &str,
+    ) -> io::Result<bool> {
+        match executor.run(&["route", "show", "to", cidr]) {
+            Ok(output) => {
+                if output.status.success() {
+                    let output_str = String::from_utf8_lossy(&output.stdout);
+                    Ok(output_str.contains(tunnel_name))
+                } else {
+                    Ok(false)
+                }
+            }
+            Err(_) => Ok(false),
+        }
+    }
+
     async fn get_local_node_ip() -> Option<String> {
         let hostname = std::env::var("HOSTNAME").ok()?;
         let client = Client::try_default().await.ok()?;
@@ -243,6 +261,33 @@ impl ControllerInner {
                 }
 
                 if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
+                    match Self::route_exists(executor, cidr, tunnel_name) {
+                        Ok(true) => {
+                            log::info!(
+                                "Route for node {} CIDR {} via tunnel {} already exists",
+                                node_name,
+                                cidr,
+                                tunnel_name
+                            );
+                        }
+                        Ok(false) => {
+                            log::info!(
+                                "Route for node {} CIDR {} via tunnel {} does not exist",
+                                node_name,
+                                cidr,
+                                tunnel_name
+                            );
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "Failed to check route for node {} CIDR {}: {}",
+                                node_name,
+                                cidr,
+                                e
+                            );
+                        }
+                    }
+
                     if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name])
                     {
                         if output.status.success() {
