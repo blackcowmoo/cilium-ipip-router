@@ -257,7 +257,7 @@ impl ControllerInner {
                     }
                 }
 
-                if let (Some(cidr), Some(ip)) = (node_cidr, node_ip) {
+                if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
                     if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name])
                     {
                         if output.status.success() {
@@ -299,7 +299,7 @@ impl ControllerInner {
         let node_cidr = Self::get_node_cidr(&node);
         let tunnel_name = Self::get_tunnel_name(&node_name);
 
-        if let (Some(cidr), Some(ip)) = (node_cidr, node_ip) {
+        if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
             if let Ok(output) = executor.run(&["route", "del", &cidr, "dev", &tunnel_name]) {
                 if output.status.success() {
                     log::info!(
