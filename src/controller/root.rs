@@ -258,11 +258,7 @@ impl ControllerInner {
                                     }
                                 }
                                 Err(e) => {
-                                    log::error!(
-                                        "Failed to create tunnel {}: {}",
-                                        tunnel_name,
-                                        e
-                                    );
+                                    log::error!("Failed to create tunnel {}: {}", tunnel_name, e);
                                 }
                             }
                         } else {
