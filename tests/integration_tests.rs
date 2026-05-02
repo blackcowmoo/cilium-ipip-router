@@ -2,6 +2,7 @@ use k8s_openapi::api::core::v1::Node;
 use kube::{api::WatchParams, Api, Client};
 
 #[tokio::test]
+#[ignore = "requires Kubernetes cluster connection"]
 async fn test_controller_connectivity() -> anyhow::Result<()> {
     let client = Client::try_default()
         .await
@@ -19,6 +20,7 @@ async fn test_controller_connectivity() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+#[ignore = "requires Kubernetes cluster connection"]
 async fn test_node_watch_connection() -> anyhow::Result<()> {
     let client = Client::try_default()
         .await
