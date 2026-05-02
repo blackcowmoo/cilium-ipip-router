@@ -231,25 +231,46 @@ impl ControllerInner {
 
                 match Self::get_local_node_ip().await {
                     Some(local_ip) => {
-                        if let Ok(output) = executor.run(&[
-                            "tunnel",
-                            "add",
-                            &tunnel_name,
-                            "mode",
-                            "ipip",
-                            "local",
-                            &local_ip,
-                            "remote",
-                            ip,
-                        ]) {
-                            if !output.status.success() {
-                                log::error!(
-                                    "Failed to create tunnel {}: command failed",
-                                    tunnel_name
-                                );
+                        if !Self::tunnel_exists(executor, &tunnel_name).unwrap_or(false) {
+                            match executor.run(&[
+                                "tunnel",
+                                "add",
+                                &tunnel_name,
+                                "mode",
+                                "ipip",
+                                "local",
+                                &local_ip,
+                                "remote",
+                                ip,
+                            ]) {
+                                Ok(output) => {
+                                    if !output.status.success() {
+                                        log::error!(
+                                            "Failed to create tunnel {}: command failed",
+                                            tunnel_name
+                                        );
+                                    } else {
+                                        log::info!(
+                                            "Created IPIP tunnel {} for node {}",
+                                            tunnel_name,
+                                            node_name
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!(
+                                        "Failed to create tunnel {}: {}",
+                                        tunnel_name,
+                                        e
+                                    );
+                                }
                             }
                         } else {
-                            log::error!("Failed to create tunnel {}: command error", tunnel_name);
+                            log::info!(
+                                "Tunnel {} for node {} already exists",
+                                tunnel_name,
+                                node_name
+                            );
                         }
                     }
                     None => {
