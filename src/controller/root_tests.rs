@@ -4,10 +4,9 @@ use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
 use std::io;
 use std::os::unix::process::ExitStatusExt;
-use std::process::Output;
 use tokio::sync::mpsc::unbounded_channel;
 
-use crate::controller::root::{self, IpCommand, IpCommandExecutor};
+use crate::controller::ipip::{IpCommand, IpCommandExecutor};
 
 #[cfg(test)]
 mod tests {
