@@ -10,10 +10,10 @@ pub(crate) enum ControllerCommand {
 }
 
 /// Server handle.
-    #[derive(Debug, Clone)]
-    pub struct ControllerHandle {
-        pub cmd_tx: UnboundedSender<ControllerCommand>,
-    }
+#[derive(Debug, Clone)]
+pub struct ControllerHandle {
+    pub cmd_tx: UnboundedSender<ControllerCommand>,
+}
 
 impl ControllerHandle {
     pub fn new(cmd_tx: UnboundedSender<ControllerCommand>) -> Self {
