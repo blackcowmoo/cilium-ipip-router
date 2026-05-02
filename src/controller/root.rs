@@ -1,66 +1,19 @@
 use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
+use crate::controller::ipip::{get_local_node_ip, update_route_with_executor, delete_route_with_executor, IpCommand, IpCommandExecutor, Node};
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
-use k8s_openapi::api::core::v1::Node;
 use kube::{
     api::{Api, WatchEvent, WatchParams},
     client::Client,
-    ResourceExt,
 };
-use md5::compute;
 use std::{
     future::Future,
     io,
     pin::Pin,
-    process::Command,
     task::{Context, Poll},
 };
 use tokio::time::{self, Duration};
-
-pub trait IpCommandExecutor {
-    fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
-}
-
-pub struct IpCommand;
-
-impl Default for IpCommand {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl IpCommand {
-    pub fn new() -> Self {
-        IpCommand
-    }
-}
-
-impl IpCommandExecutor for IpCommand {
-    fn run(&self, args: &[&str]) -> io::Result<std::process::Output> {
-        if args.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "ip command requires at least one argument",
-            ));
-        }
-        let output = Command::new("ip").args(args).output()?;
-        if !output.status.success() {
-            return Err(io::Error::other(format!(
-                "ip command failed: {:?}",
-                output.status
-            )));
-        }
-        Ok(output)
-    }
-}
-
-// #[derive(CustomResource, Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
-// #[kube(group = "cilium.io", version = "v2", kind = "CiliumEndpoint", namespaced)]
-// pub struct CiliumEndpointSpec {
-//     title: String,
-//     content: String,
-// }
 
 pub struct Controller {
     handle: ControllerHandle,
@@ -105,69 +58,6 @@ pub async fn run() -> Controller {
 pub struct ControllerInner {}
 
 impl ControllerInner {
-    pub fn get_tunnel_name(node_name: &str) -> String {
-        let hash = compute(node_name);
-        let hex_hash = format!("{:x}", hash);
-        let truncated_hash = &hex_hash[0..11];
-        format!("tun-{}", truncated_hash)
-    }
-
-    pub fn tunnel_exists<T: IpCommandExecutor>(
-        executor: &T,
-        tunnel_name: &str,
-    ) -> io::Result<bool> {
-        match executor.run(&["tunnel", "show", tunnel_name]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(_) => Ok(false),
-        }
-    }
-
-    pub fn get_node_ip(node: &Node) -> Option<String> {
-        node.status
-            .as_ref()?
-            .addresses
-            .as_ref()?
-            .iter()
-            .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
-            .map(|addr| addr.address.clone())
-    }
-
-    pub fn get_node_cidr(node: &Node) -> Option<String> {
-        node.spec.as_ref()?.pod_cidr.clone()
-    }
-
-    pub fn route_exists<T: IpCommandExecutor>(
-        executor: &T,
-        cidr: &str,
-        tunnel_name: &str,
-    ) -> io::Result<bool> {
-        match executor.run(&["route", "show", "to", cidr]) {
-            Ok(output) => {
-                if output.status.success() {
-                    let output_str = String::from_utf8_lossy(&output.stdout);
-                    Ok(output_str.contains(tunnel_name))
-                } else {
-                    Ok(false)
-                }
-            }
-            Err(_) => Ok(false),
-        }
-    }
-
-    async fn get_local_node_ip() -> Option<String> {
-        let hostname = std::env::var("HOSTNAME").ok()?;
-        let client = Client::try_default().await.ok()?;
-        let nodes: Api<Node> = Api::all(client);
-
-        nodes
-            .list(&Default::default())
-            .await
-            .ok()?
-            .into_iter()
-            .find(|n| n.metadata.name.as_deref() == Some(hostname.as_str()))
-            .and_then(|node| Self::get_node_ip(&node))
-    }
-
     pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
         let client = Client::try_default()
             .await
@@ -189,10 +79,10 @@ impl ControllerInner {
                     match status {
                         WatchEvent::Added(node) |
                         WatchEvent::Modified(node)  => {
-                            Self::update_route(node).await;
+                            update_route_with_executor(node, &IpCommand::new()).await;
                         },
                         WatchEvent::Deleted(node) => {
-                            Self::delete_route(node).await;
+                            delete_route_with_executor(node, &IpCommand::new()).await;
                         },
                          WatchEvent::Bookmark(_s) => {},
                          WatchEvent::Error(s) => println!("{}", s),
@@ -214,171 +104,5 @@ impl ControllerInner {
         }
 
         Ok(())
-    }
-
-    async fn update_route(node: Node) {
-        Self::update_route_with_executor(node, &IpCommand::new()).await
-    }
-
-    async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {
-        let node_name = node.name_any();
-        let node_ip = Self::get_node_ip(&node);
-        let node_cidr = Self::get_node_cidr(&node);
-
-        match node_ip {
-            Some(ref ip) => {
-                let tunnel_name = Self::get_tunnel_name(&node_name);
-
-                match Self::get_local_node_ip().await {
-                    Some(local_ip) => {
-                        if !Self::tunnel_exists(executor, &tunnel_name).unwrap_or(false) {
-                            match executor.run(&[
-                                "tunnel",
-                                "add",
-                                &tunnel_name,
-                                "mode",
-                                "ipip",
-                                "local",
-                                &local_ip,
-                                "remote",
-                                ip,
-                            ]) {
-                                Ok(output) => {
-                                    if !output.status.success() {
-                                        log::error!(
-                                            "Failed to create tunnel {}: command failed",
-                                            tunnel_name
-                                        );
-                                    } else {
-                                        log::info!(
-                                            "Created IPIP tunnel {} for node {}",
-                                            tunnel_name,
-                                            node_name
-                                        );
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("Failed to create tunnel {}: {}", tunnel_name, e);
-                                }
-                            }
-                        } else {
-                            log::info!(
-                                "Tunnel {} for node {} already exists",
-                                tunnel_name,
-                                node_name
-                            );
-                        }
-                    }
-                    None => {
-                        log::warn!(
-                            "Could not determine local node IP, skipping tunnel creation for {}",
-                            node_name
-                        );
-                    }
-                }
-
-                if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
-                    match Self::route_exists(executor, &cidr, &tunnel_name) {
-                        Ok(true) => {
-                            log::info!(
-                                "Route for node {} CIDR {} via tunnel {} already exists",
-                                node_name,
-                                cidr,
-                                tunnel_name
-                            );
-                        }
-                        Ok(false) => {
-                            log::info!(
-                                "Route for node {} CIDR {} via tunnel {} does not exist",
-                                node_name,
-                                cidr,
-                                tunnel_name
-                            );
-                        }
-                        Err(e) => {
-                            log::warn!(
-                                "Failed to check route for node {} CIDR {}: {}",
-                                node_name,
-                                cidr,
-                                e
-                            );
-                        }
-                    }
-
-                    if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name])
-                    {
-                        if output.status.success() {
-                            log::info!(
-                                "Added route for node {} CIDR {} via tunnel {}",
-                                node_name,
-                                cidr,
-                                tunnel_name
-                            );
-                        } else {
-                            log::error!(
-                                "Failed to add route for node {} CIDR {}: command failed",
-                                node_name,
-                                cidr
-                            );
-                        }
-                    } else {
-                        log::error!(
-                            "Failed to add route for node {} CIDR {}: command error",
-                            node_name,
-                            cidr
-                        );
-                    }
-                }
-            }
-            None => {
-                log::warn!("No IP address found for node {}", node_name);
-            }
-        }
-    }
-
-    async fn delete_route(node: Node) {
-        Self::delete_route_with_executor(node, &IpCommand::new()).await
-    }
-
-    async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, executor: &T) {
-        let node_name = node.name_any();
-        let node_ip = Self::get_node_ip(&node);
-        let node_cidr = Self::get_node_cidr(&node);
-        let tunnel_name = Self::get_tunnel_name(&node_name);
-
-        if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
-            if let Ok(output) = executor.run(&["route", "del", &cidr, "dev", &tunnel_name]) {
-                if output.status.success() {
-                    log::info!(
-                        "Deleted route for node {} CIDR {} via tunnel {}",
-                        node_name,
-                        cidr,
-                        tunnel_name
-                    );
-                } else {
-                    log::error!(
-                        "Failed to delete route for node {} CIDR {}: command failed",
-                        node_name,
-                        cidr
-                    );
-                }
-            } else {
-                log::error!(
-                    "Failed to delete route for node {} CIDR {}: command error",
-                    node_name,
-                    cidr
-                );
-            }
-        }
-
-        if let Ok(output) = executor.run(&["tunnel", "del", &tunnel_name]) {
-            if output.status.success() {
-                log::info!("Deleted IPIP tunnel {} for node {}", tunnel_name, node_name);
-            } else {
-                log::error!("Failed to delete tunnel {}: command failed", tunnel_name);
-            }
-        } else {
-            log::error!("Failed to delete tunnel {}: command error", tunnel_name);
-        }
     }
 }

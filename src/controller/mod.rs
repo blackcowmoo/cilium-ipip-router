@@ -1,3 +1,4 @@
+pub mod ipip;
 pub mod root;
 pub use root::*;
 #[cfg(test)]
