@@ -16,10 +16,14 @@ async fn health(_: HttpRequest) -> impl Responder {
 async fn main() -> anyhow::Result<()> {
     log4rs::init_file("resources/log4rs.yaml", Default::default()).unwrap();
 
-    let controller = cilium_ipip_router::controller::run().await;
-    let controller_handle = controller.handle();
+    let builder = cilium_ipip_router::controller::Controller::builder();
+    let controller_handle = builder.cmd_tx.clone();
 
-    // Start web server
+    let controller_task = tokio::spawn(async move {
+        let controller = cilium_ipip_router::controller::Controller::new(builder);
+        let _ = controller.await;
+    });
+
     let server = HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default().exclude("/health"))
@@ -36,25 +40,25 @@ async fn main() -> anyhow::Result<()> {
 
     log::info!("server started");
     tokio::pin!(server);
-    tokio::pin!(controller);
 
     tokio::select! {
         _ = sigterm.recv() => {
             log::info!("received terminate signal");
-            tokio::join!(server_handle.stop(true), controller_handle.stop(true), server, controller).2?;
+            controller_handle.stop(true).await?;
+            let (_, _, r) = tokio::join!(controller_task, server_handle.stop(true), server);
+            r?;
         }
         _ = sigint.recv() => {
             log::info!("received interrupt signal");
-            tokio::join!(server_handle.stop(true), controller_handle.stop(true), server, controller).2?;
+            controller_handle.stop(true).await?;
+            let (_, _, r) = tokio::join!(controller_task, server_handle.stop(true), server);
+            r?;
         },
         r = &mut server => {
             log::info!("server finished");
-            tokio::join!(controller_handle.stop(true), controller).1?;
-            r.unwrap();
-        },
-        r = &mut controller => {
-            log::info!("controller finished");
-            tokio::join!(server_handle.stop(true), server).1?;
+            controller_handle.stop(true).await?;
+            let (_, r) = tokio::join!(controller_task, server);
+            r?;
             r.unwrap();
         }
     }
