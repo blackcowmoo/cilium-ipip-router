@@ -107,6 +107,14 @@ pub async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, execut
     let node_ip = get_node_ip(&node);
     let node_cidr = get_node_cidr(&node);
 
+    if node_cidr.is_none() {
+        log::info!(
+            "Node {} does not have a CIDR, skipping tunnel creation",
+            node_name
+        );
+        return;
+    }
+
     match node_ip {
         Some(ref ip) => {
             let tunnel_name = get_tunnel_name(&node_name);
@@ -159,56 +167,55 @@ pub async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, execut
                 }
             }
 
-            if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
-                match route_exists(executor, &cidr, &tunnel_name) {
-                    Ok(true) => {
-                        log::info!(
-                            "Route for node {} CIDR {} via tunnel {} already exists",
-                            node_name,
-                            cidr,
-                            tunnel_name
-                        );
-                    }
-                    Ok(false) => {
-                        log::info!(
-                            "Route for node {} CIDR {} via tunnel {} does not exist",
-                            node_name,
-                            cidr,
-                            tunnel_name
-                        );
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "Failed to check route for node {} CIDR {}: {}",
-                            node_name,
-                            cidr,
-                            e
-                        );
-                    }
+            let cidr = node_cidr.unwrap();
+            match route_exists(executor, &cidr, &tunnel_name) {
+                Ok(true) => {
+                    log::info!(
+                        "Route for node {} CIDR {} via tunnel {} already exists",
+                        node_name,
+                        cidr,
+                        tunnel_name
+                    );
                 }
+                Ok(false) => {
+                    log::info!(
+                        "Route for node {} CIDR {} via tunnel {} does not exist",
+                        node_name,
+                        cidr,
+                        tunnel_name
+                    );
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to check route for node {} CIDR {}: {}",
+                        node_name,
+                        cidr,
+                        e
+                    );
+                }
+            }
 
-                if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name]) {
-                    if output.status.success() {
-                        log::info!(
-                            "Added route for node {} CIDR {} via tunnel {}",
-                            node_name,
-                            cidr,
-                            tunnel_name
-                        );
-                    } else {
-                        log::error!(
-                            "Failed to add route for node {} CIDR {}: command failed",
-                            node_name,
-                            cidr
-                        );
-                    }
+            if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name]) {
+                if output.status.success() {
+                    log::info!(
+                        "Added route for node {} CIDR {} via tunnel {}",
+                        node_name,
+                        cidr,
+                        tunnel_name
+                    );
                 } else {
                     log::error!(
-                        "Failed to add route for node {} CIDR {}: command error",
+                        "Failed to add route for node {} CIDR {}: command failed",
                         node_name,
                         cidr
                     );
                 }
+            } else {
+                log::error!(
+                    "Failed to add route for node {} CIDR {}: command error",
+                    node_name,
+                    cidr
+                );
             }
         }
         None => {
