@@ -24,3 +24,124 @@ jobs:
         run: cargo test --target x86_64-unknown-linux-gnu
       - name: Clippy
         run: cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
+
+
+  kind-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster --name cilium-router-test
+
+      - name: Build Docker image
+        run: docker build -t cilium-ipip-router:test .
+
+      - name: Load image into kind cluster
+        run: kind load docker-image cilium-ipip-router:test --name cilium-router-test
+
+      - name: Deploy controller
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: cilium-ipip-router
+            namespace: default
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: cilium-ipip-router
+          rules:
+            - apiGroups: [""]
+              resources: ["nodes"]
+              verbs: ["get", "watch", "list"]
+            - apiGroups: [""]
+              resources: ["pods"]
+              verbs: ["get", "list", "watch"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: cilium-ipip-router
+          subjects:
+            - kind: ServiceAccount
+              name: cilium-ipip-router
+              namespace: default
+          roleRef:
+            kind: ClusterRole
+            name: cilium-ipip-router
+            apiGroup: rbac.authorization.k8s.io
+          ---
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: cilium-ipip-router
+            namespace: default
+          spec:
+            selector:
+              matchLabels:
+                app: cilium-ipip-router
+            template:
+              metadata:
+                labels:
+                  app: cilium-ipip-router
+              spec:
+                serviceAccountName: cilium-ipip-router
+                containers:
+                  - name: router
+                    image: cilium-ipip-router:test
+                    imagePullPolicy: Never
+                    securityContext:
+                      capabilities:
+                        add: ["NET_ADMIN", "SYS_ADMIN"]
+                      privileged: true
+                    command:
+                      - /usr/local/bin/router
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 9090
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+                      timeoutSeconds: 3
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 9090
+                      initialDelaySeconds: 15
+                      periodSeconds: 10
+                      timeoutSeconds: 5
+          EOF
+
+      - name: Wait for daemonset to be ready
+        run: |
+          set -x
+          kubectl rollout status daemonset/cilium-ipip-router --timeout=120s || (
+            echo 'failed rollout status';
+            kubectl get pod -o yaml;
+            kubectl get daemonset cilium-ipip-router -o yaml;
+            (kubectl logs daemonset/cilium-ipip-router -p -c router || kubectl logs daemonset/cilium-ipip-router -c router);
+            exit 1;
+          )
+
+      - name: Run integration tests
+        run: |
+          cargo test --target x86_64-unknown-linux-gnu --test integration_tests
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          kubectl logs daemonset/cilium-ipip-router
+          kind export logs --name cilium-router-test ./kind-logs || true
+
+      - name: Delete kind cluster
+        run: kind delete cluster --name cilium-router-test
