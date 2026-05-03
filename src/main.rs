@@ -45,19 +45,19 @@ async fn main() -> anyhow::Result<()> {
     tokio::select! {
         _ = sigterm.recv() => {
             log::info!("received terminate signal");
-            controller_handle.stop(true).await?;
+            controller_handle.stop(true).await;
             let (_, _, r) = tokio::join!(controller_task, server_handle.stop(true), server);
             r?;
         }
         _ = sigint.recv() => {
             log::info!("received interrupt signal");
-            controller_handle.stop(true).await?;
+            controller_handle.stop(true).await;
             let (_, _, r) = tokio::join!(controller_task, server_handle.stop(true), server);
             r?;
         },
         r = &mut server => {
             log::info!("server finished");
-            controller_handle.stop(true).await?;
+            controller_handle.stop(true).await;
             let (_, r) = tokio::join!(controller_task, server);
             r?;
             r.unwrap();
