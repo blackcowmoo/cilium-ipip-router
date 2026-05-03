@@ -2,6 +2,7 @@ FROM rust:1.95.0 as builder
 WORKDIR /usr/src/router
 
 COPY . .
+RUN rustup target add x86_64-unknown-linux-musl
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
 FROM debian:bullseye-slim
