@@ -105,7 +105,13 @@ jobs:
 
       - name: Wait for daemonset to be ready
         run: |
-          kubectl rollout status daemonset/cilium-ipip-router --timeout=120s
+          kubectl rollout status daemonset/cilium-ipip-router --timeout=120s || (
+            echo 'failed rollout status';
+            kubectl get pod -o yaml;
+            kubectl get daemonset cilium-ipip-router -o yaml;
+            (kubectl logs daemonset/cilium-ipip-router -p -c router || kubectl logs daemonset/cilium-ipip-router -c router);
+            exit 1;
+          )  
 
       - name: Run integration tests
         run: |
