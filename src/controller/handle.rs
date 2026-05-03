@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
-pub(crate) enum ControllerCommand {
+pub enum ControllerCommand {
     /// Stop accepting connections and begin shutdown procedure.
     Stop {
         /// True if shut down should be graceful.
