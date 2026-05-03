@@ -59,7 +59,6 @@ async fn main() -> anyhow::Result<()> {
             log::info!("server finished");
             controller_handle.stop(true).await;
             let (_, r) = tokio::join!(controller_task, server);
-            r?;
             r.unwrap();
         }
     }
