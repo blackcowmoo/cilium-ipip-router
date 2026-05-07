@@ -39,7 +39,7 @@ jobs:
 
       - name: Create kind cluster
         run: |
-          kind create cluster --name cilium-router-test --config resources/kind-config.yaml
+          kind create cluster --name cilium-router-test --config .github/config/kind-config.yaml
 
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
