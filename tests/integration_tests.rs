@@ -82,44 +82,8 @@ async fn test_tunnels_exist_across_nodes() -> anyhow::Result<()> {
 #[tokio::test]
 #[ignore = "requires Kubernetes cluster connection"]
 async fn test_routes_exist_across_nodes() -> anyhow::Result<()> {
-    let client = Client::try_default()
-        .await
-        .inspect_err(|e| log::error!("Failed to create Kubernetes client: {}", e))?;
+    use std::process::Command;
 
-    let nodes: Api<Node> = Api::all(client.clone());
-
-    let node_list = nodes.list(&Default::default()).await.inspect_err(|e| {
-        log::error!("Failed to list nodes: {}", e);
-    })?;
-
-    log::info!("Found {} nodes in cluster", node_list.items.len());
-
-    if node_list.items.is_empty() {
-        anyhow::bail!("No nodes found in cluster");
-    }
-
-    for node in &node_list.items {
-        let node_name = node.metadata.name.as_deref().unwrap_or("unknown");
-        let pod_cidr = node
-            .spec
-            .as_ref()
-            .and_then(|s| s.pod_cidr.as_ref())
-            .map(|c| c.as_str())
-            .unwrap_or("unknown");
-
-        log::info!(
-            "Checking route for node {} with pod CIDR {}",
-            node_name,
-            pod_cidr
-        );
-    }
-
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore = "requires Kubernetes cluster connection"]
-async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
     let client = Client::try_default()
         .await
         .inspect_err(|e| log::error!("Failed to create Kubernetes client: {}", e))?;
@@ -137,6 +101,95 @@ async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
     }
 
     let node_count = node_list.items.len();
+    let mut verified_routes = 0;
+
+    for node in &node_list.items {
+        let node_name = node.metadata.name.as_deref().unwrap_or("unknown");
+        let pod_cidr = node
+            .spec
+            .as_ref()
+            .and_then(|s| s.pod_cidr.as_ref())
+            .map(|c| c.as_str())
+            .unwrap_or("unknown");
+
+        log::info!(
+            "Checking route for node {} with pod CIDR {}",
+            node_name,
+            pod_cidr
+        );
+
+        let tunnel_name = format!("tun-{}", &node_name[0..11]);
+
+        match Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "ip route show to {} 2>/dev/null | grep -q {}",
+                pod_cidr, tunnel_name
+            ))
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    log::info!(
+                        "✓ Route for node {} CIDR {} via tunnel {} verified",
+                        node_name,
+                        pod_cidr,
+                        tunnel_name
+                    );
+                    verified_routes += 1;
+                } else {
+                    log::error!(
+                        "✗ Route for node {} CIDR {} via tunnel {} NOT FOUND",
+                        node_name,
+                        pod_cidr,
+                        tunnel_name
+                    );
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to check route for node {}: {}", node_name, e);
+            }
+        }
+    }
+
+    if verified_routes != node_count {
+        anyhow::bail!(
+            "Route verification failed: {}/{} routes verified",
+            verified_routes,
+            node_count
+        );
+    }
+
+    log::info!("Successfully verified routes for all {} nodes", node_count);
+
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires Kubernetes cluster connection"]
+async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
+    use std::process::Command;
+
+    let client = Client::try_default()
+        .await
+        .inspect_err(|e| log::error!("Failed to create Kubernetes client: {}", e))?;
+
+    let nodes: Api<Node> = Api::all(client.clone());
+
+    let node_list = nodes.list(&Default::default()).await.inspect_err(|e| {
+        log::error!("Failed to list nodes: {}", e);
+    })?;
+
+    log::info!("Found {} nodes in cluster", node_list.items.len());
+
+    if node_list.items.is_empty() {
+        anyhow::bail!("No nodes found in cluster");
+    }
+
+    let node_count = node_list.items.len();
+    let mut verified_tunnels = 0;
+    let mut verified_routes = 0;
+
     log::info!("Verifying tunnels and routes for all {} nodes", node_count);
 
     for node in &node_list.items {
@@ -164,9 +217,67 @@ async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
         let tunnel_name = format!("tun-{}", &node_name[0..11]);
         log::info!("  Expected tunnel: {}", tunnel_name);
         log::info!("  Expected route: {} via {}", pod_cidr, tunnel_name);
+
+        match Command::new("sh")
+            .arg("-c")
+            .arg(format!("ip tunnel show {} 2>/dev/null", tunnel_name))
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() && !output.stdout.is_empty() {
+                    log::info!("  ✓ Tunnel {} verified", tunnel_name);
+                    verified_tunnels += 1;
+                } else {
+                    log::error!("  ✗ Tunnel {} NOT FOUND", tunnel_name);
+                }
+            }
+            Err(e) => {
+                log::error!("  Failed to check tunnel {}: {}", tunnel_name, e);
+            }
+        }
+
+        match Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "ip route show to {} 2>/dev/null | grep -q {}",
+                pod_cidr, tunnel_name
+            ))
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    log::info!("  ✓ Route for {} via {} verified", pod_cidr, tunnel_name);
+                    verified_routes += 1;
+                } else {
+                    log::error!("  ✗ Route for {} via {} NOT FOUND", pod_cidr, tunnel_name);
+                }
+            }
+            Err(e) => {
+                log::error!("  Failed to check route for node {}: {}", node_name, e);
+            }
+        }
     }
 
-    log::info!("Verified tunnels and routes for all {} nodes", node_count);
+    if verified_tunnels != node_count {
+        anyhow::bail!(
+            "Tunnel verification failed: {}/{} tunnels verified",
+            verified_tunnels,
+            node_count
+        );
+    }
+
+    if verified_routes != node_count {
+        anyhow::bail!(
+            "Route verification failed: {}/{} routes verified",
+            verified_routes,
+            node_count
+        );
+    }
+
+    log::info!(
+        "Successfully verified tunnels and routes for all {} nodes",
+        node_count
+    );
 
     Ok(())
 }
