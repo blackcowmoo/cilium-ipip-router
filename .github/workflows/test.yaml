@@ -144,4 +144,5 @@ jobs:
           kind export logs --name cilium-router-test ./kind-logs || true
 
       - name: Delete kind cluster
+        if: always()
         run: kind delete cluster --name cilium-router-test
