@@ -63,16 +63,14 @@ async fn test_tunnels_exist_across_nodes() -> anyhow::Result<()> {
             .as_ref()
             .and_then(|s| s.addresses.as_ref())
             .and_then(|addrs| {
-                addrs.iter().find(|a| a.type_ == "ExternalIP" || a.type_ == "InternalIP")
+                addrs
+                    .iter()
+                    .find(|a| a.type_ == "ExternalIP" || a.type_ == "InternalIP")
             })
             .map(|a| a.address.clone())
             .unwrap_or_else(|| "unknown".to_string());
 
-        log::info!(
-            "Checking tunnel for node {} with IP {}",
-            node_name,
-            node_ip
-        );
+        log::info!("Checking tunnel for node {} with IP {}", node_name, node_ip);
 
         let tunnel_name = format!("tun-{}", &node_name[0..11]);
         log::info!("Expected tunnel name: {}", tunnel_name);
@@ -148,7 +146,9 @@ async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
             .as_ref()
             .and_then(|s| s.addresses.as_ref())
             .and_then(|addrs| {
-                addrs.iter().find(|a| a.type_ == "ExternalIP" || a.type_ == "InternalIP")
+                addrs
+                    .iter()
+                    .find(|a| a.type_ == "ExternalIP" || a.type_ == "InternalIP")
             })
             .map(|a| a.address.clone())
             .unwrap_or_else(|| "unknown".to_string());
@@ -159,22 +159,14 @@ async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
             .map(|c| c.as_str())
             .unwrap_or("unknown");
 
-        log::info!(
-            "Node {}: IP={}, PodCIDR={}",
-            node_name,
-            node_ip,
-            pod_cidr
-        );
+        log::info!("Node {}: IP={}, PodCIDR={}", node_name, node_ip, pod_cidr);
 
         let tunnel_name = format!("tun-{}", &node_name[0..11]);
         log::info!("  Expected tunnel: {}", tunnel_name);
         log::info!("  Expected route: {} via {}", pod_cidr, tunnel_name);
     }
 
-    log::info!(
-        "Verified tunnels and routes for all {} nodes",
-        node_count
-    );
+    log::info!("Verified tunnels and routes for all {} nodes", node_count);
 
     Ok(())
 }
