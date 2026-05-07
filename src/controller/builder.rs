@@ -3,8 +3,8 @@ use super::handle::ControllerCommand;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub struct ControllerBuilder {
-    pub(crate) cmd_tx: UnboundedSender<ControllerCommand>,
-    pub(crate) cmd_rx: UnboundedReceiver<ControllerCommand>,
+    pub cmd_tx: UnboundedSender<ControllerCommand>,
+    pub cmd_rx: UnboundedReceiver<ControllerCommand>,
 }
 
 impl Default for ControllerBuilder {
