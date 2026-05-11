@@ -83,7 +83,8 @@ jobs:
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=false \
-            --wait --wait-duration 300s
+            --set nodeSelector."kubernetes\\.io/os"=linux=true \
+            --wait --wait-duration 600s
 
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
