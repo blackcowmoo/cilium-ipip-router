@@ -80,6 +80,10 @@ jobs:
             --set ipam.mode=kubernetes \
             --set routingMode=native \
             --set tunnelProtocol=disabled \
+            --set kubeProxyReplacement=true \
+            --set autoDirectNodeRoutes=true \
+            --set ipv4NativeRoutingCIDR=10.0.0.0/8 \
+            --set l2announcements.enabled=true \
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=false \
