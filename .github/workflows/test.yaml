@@ -80,7 +80,7 @@ jobs:
             --set ipam.mode=kubernetes \
             --set routingMode=overlay \
             --set tunnelProtocol=vxlan \
-            --set kubeProxyReplacement=disabled \
+            --set kubeProxyReplacement=false \
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=false \
