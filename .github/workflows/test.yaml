@@ -78,7 +78,7 @@ jobs:
           mv /tmp/cilium /usr/local/bin/cilium
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
-            --set tunnel=ipip \
+            --set tunnelProtocol=ipip \
             --set routingMode=direct \
             --set tunnelPort=8472 \
             --set nodePort.enable=false \
