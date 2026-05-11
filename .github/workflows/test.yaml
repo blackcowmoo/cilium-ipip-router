@@ -70,6 +70,22 @@ jobs:
         run: |
           kind create cluster --name cilium-router-test --config .github/config/kind-config.yaml
 
+      - name: Install Cilium with IPIP and direct routing
+        run: |
+          kind get kubeconfig --name cilium-router-test > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          curl -sL https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz | tar xz -C /tmp
+          mv /tmp/cilium /usr/local/bin/cilium
+          cilium install --version 1.18 \
+            --set ipam.mode=kubernetes \
+            --set tunnel=ipip \
+            --set routingMode=direct \
+            --set tunnelPort=8472 \
+            --set nodePort.enable=false \
+            --set hubble.enable=false \
+            --set operator.enable=false \
+            --wait --timeout 300s
+
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
 
