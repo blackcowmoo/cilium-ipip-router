@@ -2,13 +2,62 @@ use k8s_openapi::api::core::v1::Node;
 use kube::api::{ListParams, WatchEvent};
 use kube_core::watch::{Bookmark, BookmarkMeta};
 use std::collections::BTreeMap;
+use std::io;
+use std::os::unix::process::ExitStatusExt;
 use tokio::sync::mpsc::unbounded_channel;
+
+use crate::controller::ipip::{IpCommand, IpCommandExecutor};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::controller::builder::ControllerBuilder;
     use crate::controller::handle::{ControllerCommand, ControllerHandle};
+
+    #[derive(Default)]
+    struct MockIpCommand {
+        stdout: Vec<u8>,
+        stderr: Vec<u8>,
+        should_succeed: bool,
+    }
+
+    impl MockIpCommand {
+        fn new() -> Self {
+            Self {
+                should_succeed: true,
+                ..Default::default()
+            }
+        }
+
+        fn with_output(stdout: &[u8], stderr: &[u8]) -> Self {
+            Self {
+                stdout: stdout.to_vec(),
+                stderr: stderr.to_vec(),
+                should_succeed: true,
+            }
+        }
+
+        fn with_error() -> Self {
+            Self {
+                should_succeed: false,
+                ..Default::default()
+            }
+        }
+    }
+
+    impl IpCommandExecutor for MockIpCommand {
+        fn run(&self, _args: &[&str]) -> io::Result<std::process::Output> {
+            if self.should_succeed {
+                Ok(std::process::Output {
+                    stdout: self.stdout.clone(),
+                    stderr: self.stderr.clone(),
+                    status: std::process::ExitStatus::from_raw(0),
+                })
+            } else {
+                Err(io::Error::new(io::ErrorKind::Other, "ip command failed"))
+            }
+        }
+    }
 
     #[test]
     fn test_node_creation() {
@@ -230,5 +279,214 @@ mod tests {
         assert!(builder.cmd_tx.send(cmd2).is_ok());
 
         assert_eq!(builder.cmd_rx.len(), 2);
+    }
+
+    #[test]
+    fn test_get_tunnel_name_short() {
+        let node_name = "node-1";
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
+        assert_eq!(tunnel_name, "tun-d50164b9587");
+        assert!(tunnel_name.len() <= 15);
+    }
+
+    #[test]
+    fn test_get_tunnel_name_long() {
+        let node_name = "very-long-node-name-that-exceeds-limit";
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
+        assert_eq!(tunnel_name, "tun-743e7336877");
+        assert!(tunnel_name.len() <= 15);
+    }
+
+    #[test]
+    fn test_get_tunnel_name_exact_length() {
+        let node_name = "exactly10chars";
+        let tunnel_name = crate::controller::root::ControllerInner::get_tunnel_name(node_name);
+        assert_eq!(tunnel_name, "tun-15754261d2f");
+        assert!(tunnel_name.len() <= 15);
+    }
+
+    #[test]
+    fn test_get_node_ip_with_external_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: Some(vec![
+                    k8s_openapi::api::core::v1::NodeAddress {
+                        type_: "ExternalIP".to_string(),
+                        address: "203.0.113.1".to_string(),
+                    },
+                    k8s_openapi::api::core::v1::NodeAddress {
+                        type_: "InternalIP".to_string(),
+                        address: "10.0.0.1".to_string(),
+                    },
+                ]),
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, Some("203.0.113.1".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_ip_with_internal_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: Some(vec![k8s_openapi::api::core::v1::NodeAddress {
+                    type_: "InternalIP".to_string(),
+                    address: "10.0.0.1".to_string(),
+                }]),
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, Some("10.0.0.1".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_ip_no_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: Some(vec![]),
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, None);
+    }
+
+    #[test]
+    fn test_get_node_ip_no_status() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: None,
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, None);
+    }
+
+    #[test]
+    fn test_get_node_ip_no_addresses() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: Some(k8s_openapi::api::core::v1::NodeStatus {
+                addresses: None,
+                ..Default::default()
+            }),
+        };
+
+        let node_ip = crate::controller::root::ControllerInner::get_node_ip(&node);
+        assert_eq!(node_ip, None);
+    }
+
+    #[test]
+    fn test_get_node_cidr() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Some(k8s_openapi::api::core::v1::NodeSpec {
+                pod_cidr: Some("10.0.0.0/24".to_string()),
+                ..Default::default()
+            }),
+            status: None,
+        };
+
+        let node_cidr = crate::controller::root::ControllerInner::get_node_cidr(&node);
+        assert_eq!(node_cidr, Some("10.0.0.0/24".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_cidr_no_spec() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: None,
+        };
+
+        let node_cidr = crate::controller::root::ControllerInner::get_node_cidr(&node);
+        assert_eq!(node_cidr, None);
+    }
+
+    #[test]
+    fn test_get_node_cidr_no_cidr() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Some(k8s_openapi::api::core::v1::NodeSpec {
+                ..Default::default()
+            }),
+            status: None,
+        };
+
+        let node_cidr = crate::controller::root::ControllerInner::get_node_cidr(&node);
+        assert_eq!(node_cidr, None);
+    }
+
+    #[test]
+    fn test_ip_command_new() {
+        let ip_cmd = IpCommand::new();
+        assert!(matches!(ip_cmd, IpCommand));
+    }
+
+    #[test]
+    fn test_tunnel_exists_with_mock() {
+        let mock_cmd = MockIpCommand::with_output(b"", b"");
+        let exists = crate::controller::root::ControllerInner::tunnel_exists(&mock_cmd, "tun-test");
+
+        assert!(exists.is_ok());
+        assert!(exists.unwrap());
+    }
+
+    #[test]
+    fn test_tunnel_exists_with_mock_not_found() {
+        let mock_cmd = MockIpCommand::with_error();
+        let exists = crate::controller::root::ControllerInner::tunnel_exists(&mock_cmd, "tun-test");
+
+        assert!(exists.is_ok());
+        assert!(!exists.unwrap());
+    }
+
+    #[test]
+    fn test_ip_command_run_success() {
+        let mock_cmd = MockIpCommand::with_output(b"output\n", b"");
+        let result = mock_cmd.run(&["link", "show", "lo"]);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output.stdout, b"output\n");
+    }
+
+    #[test]
+    fn test_ip_command_run_failure() {
+        let mock_cmd = MockIpCommand::with_error();
+        let result = mock_cmd.run(&["nonexistent", "command"]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ip_command_run_with_multiple_args() {
+        let mock_cmd = MockIpCommand::with_output(b"output\n", b"");
+        let result = mock_cmd.run(&["link", "show", "lo"]);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output.stdout, b"output\n");
+    }
+
+    #[test]
+    fn test_ip_command_run_empty_args() {
+        let mock_cmd = MockIpCommand::new();
+        let result = mock_cmd.run(&[]);
+
+        assert!(result.is_ok());
     }
 }

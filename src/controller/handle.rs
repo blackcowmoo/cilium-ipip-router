@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
-pub(crate) enum ControllerCommand {
+pub enum ControllerCommand {
     /// Stop accepting connections and begin shutdown procedure.
     Stop {
         /// True if shut down should be graceful.
@@ -12,11 +12,11 @@ pub(crate) enum ControllerCommand {
 /// Server handle.
 #[derive(Debug, Clone)]
 pub struct ControllerHandle {
-    cmd_tx: UnboundedSender<ControllerCommand>,
+    pub cmd_tx: UnboundedSender<ControllerCommand>,
 }
 
 impl ControllerHandle {
-    pub(crate) fn new(cmd_tx: UnboundedSender<ControllerCommand>) -> Self {
+    pub fn new(cmd_tx: UnboundedSender<ControllerCommand>) -> Self {
         ControllerHandle { cmd_tx }
     }
 
