@@ -79,6 +79,7 @@ jobs:
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
             --set routingMode=native \
+            --set tunnelProtocol=disabled \
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=false \
