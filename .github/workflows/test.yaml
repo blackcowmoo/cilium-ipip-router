@@ -84,7 +84,7 @@ jobs:
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=false \
-            --wait --wait-timeout 300s
+            --wait --timeout 300s
 
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
