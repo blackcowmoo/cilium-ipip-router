@@ -78,11 +78,11 @@ jobs:
           mv /tmp/cilium /usr/local/bin/cilium
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
-            --set routingMode=tunnel \
+            --set routingMode=native \
             --set tunnelProtocol=ipip \
             --set kubeProxyReplacement=true \
             --set hubble.enable=false \
-            --set operator.enable=true \
+            --set operator.enable=false \
             --set nodeSelector.kubernetes\\.io/os=linux \
             --wait --wait-duration 600s
 
