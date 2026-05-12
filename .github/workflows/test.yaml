@@ -78,11 +78,9 @@ jobs:
           mv /tmp/cilium /usr/local/bin/cilium
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
-            --set routingMode=native \
-            --set tunnelProtocol=disabled \
+            --set routingMode=vxlan \
+            --set tunnelProtocol=vxlan \
             --set kubeProxyReplacement=true \
-            --set autoDirectNodeRoutes=true \
-            --set ipv4NativeRoutingCIDR=10.0.0.0/8 \
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=false \
