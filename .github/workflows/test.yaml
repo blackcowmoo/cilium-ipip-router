@@ -84,6 +84,9 @@ jobs:
             --set hubble.enable=false \
             --set operator.enable=true \
             --set nodeSelector.kubernetes\\.io/os=linux \
+            --set tolerations[0].key=node-role.kubernetes.io/control-plane \
+            --set tolerations[0].effect=NoSchedule \
+            --set tolerations[0].operator=Exists \
             --wait --wait-duration 600s
 
       - name: Build Docker image
