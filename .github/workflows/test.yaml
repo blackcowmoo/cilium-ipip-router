@@ -70,7 +70,7 @@ jobs:
         run: |
           kind create cluster --name cilium-router-test --config .github/config/kind-config.yaml
 
-      - name: Install Cilium with IPIP and direct routing
+      - name: Install Cilium with IPIP tunneling
         run: |
           kind get kubeconfig --name cilium-router-test > /tmp/kubeconfig
           export KUBECONFIG=/tmp/kubeconfig
@@ -78,7 +78,7 @@ jobs:
           mv /tmp/cilium /usr/local/bin/cilium
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
-            --set routingMode=native \
+            --set routingMode=tunnel \
             --set tunnelProtocol=ipip \
             --set kubeProxyReplacement=true \
             --set nodePort.enable=false \
