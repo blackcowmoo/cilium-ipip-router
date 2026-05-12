@@ -84,7 +84,7 @@ jobs:
             --set nodePort.enable=false \
             --set hubble.enable=false \
             --set operator.enable=true \
-            --set nodeSelector."kubernetes\\.io/os"=linux \
+            --set nodeSelector.kubernetes\\.io/os=linux \
             --wait --wait-duration 600s
 
       - name: Build Docker image
