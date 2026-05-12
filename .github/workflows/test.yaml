@@ -82,7 +82,7 @@ jobs:
             --set tunnelProtocol=vxlan \
             --set kubeProxyReplacement=true \
             --set hubble.enable=false \
-            --set operator.enable=false \
+            --set operator.enable=true \
             --set nodeSelector.kubernetes\\.io/os=linux \
             --wait --wait-duration 600s
 
