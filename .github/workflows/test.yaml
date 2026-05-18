@@ -90,6 +90,7 @@ jobs:
           export KUBECONFIG=/tmp/kubeconfig
           curl -sL https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz | tar xz -C /tmp
           mv /tmp/cilium /usr/local/bin/cilium
+          MASTER_IP=$(kubectl get node cilium-router-test-control-plane -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
             --set routingMode=vxlan \
@@ -101,6 +102,8 @@ jobs:
             --set tolerations[0].key=node-role.kubernetes.io/control-plane \
             --set tolerations[0].effect=NoSchedule \
             --set tolerations[0].operator=Exists \
+            --set k8sServiceHost=$MASTER_IP \
+            --set k8sServicePort=6443 \
             --wait --wait-duration 600s
 
       - name: Verify the Cilium agents
