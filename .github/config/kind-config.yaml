@@ -1,5 +1,10 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  # This disables the installation of kube-proxy
+  kubeProxyMode: "none"
+  # Optional: Disable the default Kind CNI if you're installing your own (e.g., Cilium)
+  disableDefaultCNI: true 
 nodes:
   - role: control-plane
   - role: worker

@@ -70,6 +70,12 @@ jobs:
         run: |
           kind create cluster --name cilium-router-test --config .github/config/kind-config.yaml
 
+      - name: Verify the Kubernetes cluster
+        run: |-
+          set -xe
+          kubectl get nodes -o yaml
+          kubectl get ns -o yaml
+
       - name: Install Cilium with IPIP tunneling
         run: |
           kind get kubeconfig --name cilium-router-test > /tmp/kubeconfig
@@ -88,6 +94,12 @@ jobs:
             --set tolerations[0].effect=NoSchedule \
             --set tolerations[0].operator=Exists \
             --wait --wait-duration 600s
+
+      - name: Verify the Cilium agents
+        run: |-
+          set -xe
+          kubectl get pod -n kube-system -o yaml
+          kubectl get cm -n kube-system -o yaml
 
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
