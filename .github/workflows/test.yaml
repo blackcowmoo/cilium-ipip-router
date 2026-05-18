@@ -72,9 +72,17 @@ jobs:
 
       - name: Verify the Kubernetes cluster
         run: |-
-          set -xe
+          echo "::group::Show the Nodes"
           kubectl get nodes -o yaml
-          kubectl get ns -o yaml
+          echo "::endgroup::"
+
+          echo "::group::Show the Namespaces"
+          kubectl get namespaces -o yaml
+          echo "::endgroup::"
+
+          echo "::group::Show the Pods in kube-system"
+          kubectl get pods -o yaml -n kube-system
+          echo "::endgroup::"
 
       - name: Install Cilium with IPIP tunneling
         run: |
@@ -97,9 +105,13 @@ jobs:
 
       - name: Verify the Cilium agents
         run: |-
-          set -xe
-          kubectl get pod -n kube-system -o yaml
-          kubectl get cm -n kube-system -o yaml
+          echo "::group::Show the Pods in kube-system"
+          kubectl get pods -n kube-system -o yaml
+          echo "::endgroup::"
+
+          echo "::group::Show the ConfigMaps in kube-system"
+          kubectl get configmaps -n kube-system -o yaml
+          echo "::endgroup::"
 
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
