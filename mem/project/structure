@@ -1,0 +1,38 @@
+# Project Structure
+
+## Overview
+- Project: cilium-ipip-router
+- Location: /git/work
+- Main source directory: src/
+- Binary directory: src/bin/
+- Key modules:
+  - src/bin/router.rs: Application entry point (binary)
+  - src/lib.rs: Library module declarations
+  - src/controller/: Controller logic for Kubernetes node watching
+
+## Code Organization
+### src/bin/
+- router.rs: Main entry point with Actix web server and controller integration
+
+### src/controller/
+  - builder.rs: ControllerBuilder for constructing controller instances
+  - handle.rs: ControllerHandle for issuing commands to the controller
+  - ipip.rs: IPIP tunnel management and node IP/CIDR handling
+  - mod.rs: Module declarations and re-exports
+  - root.rs: Main Controller implementation with Kubernetes API integration
+  - root_tests.rs: Unit tests for controller functionality
+
+## Directory Structure
+```
+src/
+├── bin/
+│   └── router.rs
+├── controller/
+│   ├── builder.rs
+│   ├── handle.rs
+│   ├── ipip.rs
+│   ├── mod.rs
+│   ├── root.rs
+│   └── root_tests.rs
+└── lib.rs
+```
