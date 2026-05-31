@@ -37,7 +37,7 @@ impl IpCommandExecutor for IpCommand {
     }
 }
 
-use k8s_openapi::api::core::v1::Node;
+use api::core::v1::Node;
 use kube::client::Client;
 use kube::ResourceExt;
 use std::process::Command;
@@ -276,3 +276,5 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
         log::error!("Failed to delete tunnel {}: command error", tunnel_name);
     }
 }
+
+pub use api::core::v1::Node;
