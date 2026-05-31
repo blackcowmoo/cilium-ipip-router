@@ -1,5 +1,10 @@
 use std::io;
 
+use k8s_openapi::api::core::v1::Node;
+use kube::client::Client;
+use kube::ResourceExt;
+use std::process::Command;
+
 pub trait IpCommandExecutor {
     fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
 }
@@ -36,11 +41,6 @@ impl IpCommandExecutor for IpCommand {
         Ok(output)
     }
 }
-
-use api::core::v1::Node;
-use kube::client::Client;
-use kube::ResourceExt;
-use std::process::Command;
 
 pub async fn get_local_node_ip() -> Option<String> {
     let hostname = std::env::var("HOSTNAME").ok()?;
@@ -277,4 +277,4 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
     }
 }
 
-pub use api::core::v1::Node;
+pub use k8s_openapi::api::core::v1::Node;
