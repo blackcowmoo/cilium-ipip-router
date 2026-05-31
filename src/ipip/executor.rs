@@ -276,5 +276,3 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
         log::error!("Failed to delete tunnel {}: command error", tunnel_name);
     }
 }
-
-
