@@ -1,5 +1,5 @@
 use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
-use crate::controller::ipip::{
+use crate::ipip::executor::{
     delete_route_with_executor, update_route_with_executor, IpCommand, Node,
 };
 
@@ -59,22 +59,22 @@ pub struct ControllerInner {}
 
 impl ControllerInner {
     pub fn get_tunnel_name(node_name: &str) -> String {
-        crate::controller::ipip::get_tunnel_name(node_name)
+        crate::ipip::executor::get_tunnel_name(node_name)
     }
 
     pub fn get_node_ip(node: &Node) -> Option<String> {
-        crate::controller::ipip::get_node_ip(node)
+        crate::ipip::executor::get_node_ip(node)
     }
 
     pub fn get_node_cidr(node: &Node) -> Option<String> {
-        crate::controller::ipip::get_node_cidr(node)
+        crate::ipip::executor::get_node_cidr(node)
     }
 
-    pub fn tunnel_exists<T: crate::controller::ipip::IpCommandExecutor>(
+    pub fn tunnel_exists<T: crate::ipip::executor::IpCommandExecutor>(
         executor: &T,
         tunnel_name: &str,
     ) -> io::Result<bool> {
-        crate::controller::ipip::tunnel_exists(executor, tunnel_name)
+        crate::ipip::executor::tunnel_exists(executor, tunnel_name)
     }
 
     pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {

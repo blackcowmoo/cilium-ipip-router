@@ -1,8 +1,4 @@
-pub use k8s_openapi::api::core::v1::Node;
-use kube::client::Client;
-use kube::ResourceExt;
 use std::io;
-use std::process::Command;
 
 pub trait IpCommandExecutor {
     fn run(&self, args: &[&str]) -> io::Result<std::process::Output>;
@@ -41,52 +37,10 @@ impl IpCommandExecutor for IpCommand {
     }
 }
 
-pub fn get_tunnel_name(node_name: &str) -> String {
-    use md5::compute;
-    let hash = compute(node_name);
-    let hex_hash = format!("{:x}", hash);
-    let truncated_hash = &hex_hash[0..11];
-    format!("tun-{}", truncated_hash)
-}
-
-pub fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
-    match executor.run(&["tunnel", "show", tunnel_name]) {
-        Ok(output) => Ok(output.status.success()),
-        Err(_) => Ok(false),
-    }
-}
-
-pub fn get_node_ip(node: &Node) -> Option<String> {
-    node.status
-        .as_ref()?
-        .addresses
-        .as_ref()?
-        .iter()
-        .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
-        .map(|addr| addr.address.clone())
-}
-
-pub fn get_node_cidr(node: &Node) -> Option<String> {
-    node.spec.as_ref()?.pod_cidr.clone()
-}
-
-pub fn route_exists<T: IpCommandExecutor>(
-    executor: &T,
-    cidr: &str,
-    tunnel_name: &str,
-) -> io::Result<bool> {
-    match executor.run(&["route", "show", "to", cidr]) {
-        Ok(output) => {
-            if output.status.success() {
-                let output_str = String::from_utf8_lossy(&output.stdout);
-                Ok(output_str.contains(tunnel_name))
-            } else {
-                Ok(false)
-            }
-        }
-        Err(_) => Ok(false),
-    }
-}
+use k8s_openapi::api::core::v1::Node;
+use kube::client::Client;
+use kube::ResourceExt;
+use std::process::Command;
 
 pub async fn get_local_node_ip() -> Option<String> {
     let hostname = std::env::var("HOSTNAME").ok()?;
@@ -109,6 +63,53 @@ pub async fn get_local_node_ip() -> Option<String> {
             log::warn!("Failed to create Kubernetes client: {}", e);
             None
         }
+    }
+}
+
+pub fn get_node_ip(node: &Node) -> Option<String> {
+    node.status
+        .as_ref()?
+        .addresses
+        .as_ref()?
+        .iter()
+        .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
+        .map(|addr| addr.address.clone())
+}
+
+pub fn get_node_cidr(node: &Node) -> Option<String> {
+    node.spec.as_ref()?.pod_cidr.clone()
+}
+
+pub fn get_tunnel_name(node_name: &str) -> String {
+    use md5::compute;
+    let hash = compute(node_name);
+    let hex_hash = format!("{:x}", hash);
+    let truncated_hash = &hex_hash[0..11];
+    format!("tun-{}", truncated_hash)
+}
+
+pub fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
+    match executor.run(&["tunnel", "show", tunnel_name]) {
+        Ok(output) => Ok(output.status.success()),
+        Err(_) => Ok(false),
+    }
+}
+
+pub fn route_exists<T: IpCommandExecutor>(
+    executor: &T,
+    cidr: &str,
+    tunnel_name: &str,
+) -> io::Result<bool> {
+    match executor.run(&["route", "show", "to", cidr]) {
+        Ok(output) => {
+            if output.status.success() {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                Ok(output_str.contains(tunnel_name))
+            } else {
+                Ok(false)
+            }
+        }
+        Err(_) => Ok(false),
     }
 }
 

@@ -15,7 +15,7 @@ Each router instance operates independently on its assigned node to manage IPIP 
 - Manage node-local network configuration
 
 **Implementation:**
-- `src/main.rs`: Main application entry point
+- `src/bin/router.rs`: Main application entry point
 - `src/lib.rs`: Library module structure
 
 ## HTTP Server
@@ -26,7 +26,7 @@ Lightweight web server for health checks and observability.
 - `GET /health`: Returns "healthy" status
 
 **Implementation:**
-- `src/main.rs`: Server configuration and startup
+- `src/bin/router.rs`: Server configuration and startup
 
 ### Logging
 
