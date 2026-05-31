@@ -6,7 +6,7 @@ edition = "2021"
 [[bin]]
 doc = false
 name = "router"
-path = "src/main.rs"
+path = "src/bin/router.rs"
 
 [[test]]
 name = "integration_tests"
