@@ -279,8 +279,8 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
 
 #[cfg(test)]
 mod tests {
-    use k8s_openapi::api::core::v1::{NodeAddress, NodeSpec, NodeStatus};
     use super::*;
+    use k8s_openapi::api::core::v1::{NodeAddress, NodeSpec, NodeStatus};
     use std::io::ErrorKind;
 
     #[test]
@@ -401,14 +401,18 @@ mod tests {
 
     #[test]
     fn test_tunnel_exists_success() {
-        let mock = MockExecutor { should_succeed: true };
+        let mock = MockExecutor {
+            should_succeed: true,
+        };
         let result = tunnel_exists(&mock, "tun-test");
         assert!(result.unwrap());
     }
 
     #[test]
     fn test_tunnel_exists_failure() {
-        let mock = MockExecutor { should_succeed: false };
+        let mock = MockExecutor {
+            should_succeed: false,
+        };
         let result = tunnel_exists(&mock, "tun-nonexistent");
         assert!(!result.unwrap());
     }
