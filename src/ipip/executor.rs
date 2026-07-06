@@ -1,7 +1,8 @@
-pub use k8s_openapi::api::core::v1::Node;
+use std::io;
+
+use k8s_openapi::api::core::v1::Node;
 use kube::client::Client;
 use kube::ResourceExt;
-use std::io;
 use std::process::Command;
 
 pub trait IpCommandExecutor {
@@ -41,53 +42,6 @@ impl IpCommandExecutor for IpCommand {
     }
 }
 
-pub fn get_tunnel_name(node_name: &str) -> String {
-    use md5::compute;
-    let hash = compute(node_name);
-    let hex_hash = format!("{:x}", hash);
-    let truncated_hash = &hex_hash[0..11];
-    format!("tun-{}", truncated_hash)
-}
-
-pub fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
-    match executor.run(&["tunnel", "show", tunnel_name]) {
-        Ok(output) => Ok(output.status.success()),
-        Err(_) => Ok(false),
-    }
-}
-
-pub fn get_node_ip(node: &Node) -> Option<String> {
-    node.status
-        .as_ref()?
-        .addresses
-        .as_ref()?
-        .iter()
-        .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
-        .map(|addr| addr.address.clone())
-}
-
-pub fn get_node_cidr(node: &Node) -> Option<String> {
-    node.spec.as_ref()?.pod_cidr.clone()
-}
-
-pub fn route_exists<T: IpCommandExecutor>(
-    executor: &T,
-    cidr: &str,
-    tunnel_name: &str,
-) -> io::Result<bool> {
-    match executor.run(&["route", "show", "to", cidr]) {
-        Ok(output) => {
-            if output.status.success() {
-                let output_str = String::from_utf8_lossy(&output.stdout);
-                Ok(output_str.contains(tunnel_name))
-            } else {
-                Ok(false)
-            }
-        }
-        Err(_) => Ok(false),
-    }
-}
-
 pub async fn get_local_node_ip() -> Option<String> {
     let hostname = std::env::var("HOSTNAME").ok()?;
     match Client::try_default().await {
@@ -109,6 +63,53 @@ pub async fn get_local_node_ip() -> Option<String> {
             log::warn!("Failed to create Kubernetes client: {}", e);
             None
         }
+    }
+}
+
+pub fn get_node_ip(node: &Node) -> Option<String> {
+    node.status
+        .as_ref()?
+        .addresses
+        .as_ref()?
+        .iter()
+        .find(|addr| addr.type_ == "ExternalIP" || addr.type_ == "InternalIP")
+        .map(|addr| addr.address.clone())
+}
+
+pub fn get_node_cidr(node: &Node) -> Option<String> {
+    node.spec.as_ref()?.pod_cidr.clone()
+}
+
+pub fn get_tunnel_name(node_name: &str) -> String {
+    use md5::compute;
+    let hash = compute(node_name);
+    let hex_hash = format!("{:x}", hash);
+    let truncated_hash = &hex_hash[0..11];
+    format!("tun-{}", truncated_hash)
+}
+
+pub fn tunnel_exists<T: IpCommandExecutor>(executor: &T, tunnel_name: &str) -> io::Result<bool> {
+    match executor.run(&["tunnel", "show", tunnel_name]) {
+        Ok(output) => Ok(output.status.success()),
+        Err(_) => Ok(false),
+    }
+}
+
+pub fn route_exists<T: IpCommandExecutor>(
+    executor: &T,
+    cidr: &str,
+    tunnel_name: &str,
+) -> io::Result<bool> {
+    match executor.run(&["route", "show", "to", cidr]) {
+        Ok(output) => {
+            if output.status.success() {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                Ok(output_str.contains(tunnel_name))
+            } else {
+                Ok(false)
+            }
+        }
+        Err(_) => Ok(false),
     }
 }
 
@@ -273,5 +274,221 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
         }
     } else {
         log::error!("Failed to delete tunnel {}: command error", tunnel_name);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use k8s_openapi::api::core::v1::{NodeAddress, NodeSpec, NodeStatus};
+    use std::io::ErrorKind;
+
+    #[test]
+    fn test_get_node_ip_with_external_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Default::default(),
+            status: Some(NodeStatus {
+                addresses: Some(vec![NodeAddress {
+                    type_: "ExternalIP".to_string(),
+                    address: "192.168.1.1".to_string(),
+                }]),
+                ..Default::default()
+            }),
+        };
+        let ip = get_node_ip(&node);
+        assert_eq!(ip, Some("192.168.1.1".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_ip_with_internal_ip() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Default::default(),
+            status: Some(NodeStatus {
+                addresses: Some(vec![NodeAddress {
+                    type_: "InternalIP".to_string(),
+                    address: "10.0.0.1".to_string(),
+                }]),
+                ..Default::default()
+            }),
+        };
+        let ip = get_node_ip(&node);
+        assert_eq!(ip, Some("10.0.0.1".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_ip_with_no_addresses() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Default::default(),
+            status: Some(NodeStatus {
+                addresses: Some(vec![]),
+                ..Default::default()
+            }),
+        };
+        let ip = get_node_ip(&node);
+        assert_eq!(ip, None);
+    }
+
+    #[test]
+    fn test_get_node_ip_with_no_status() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Default::default(),
+            status: None,
+        };
+        let ip = get_node_ip(&node);
+        assert_eq!(ip, None);
+    }
+
+    #[test]
+    fn test_get_node_cidr_with_cidr() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Some(NodeSpec {
+                pod_cidr: Some("10.244.0.0/24".to_string()),
+                ..Default::default()
+            }),
+            status: None,
+        };
+        let cidr = get_node_cidr(&node);
+        assert_eq!(cidr, Some("10.244.0.0/24".to_string()));
+    }
+
+    #[test]
+    fn test_get_node_cidr_with_no_cidr() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: Some(NodeSpec {
+                pod_cidr: None,
+                ..Default::default()
+            }),
+            status: None,
+        };
+        let cidr = get_node_cidr(&node);
+        assert_eq!(cidr, None);
+    }
+
+    #[test]
+    fn test_get_node_cidr_with_no_spec() {
+        let node = Node {
+            metadata: Default::default(),
+            spec: None,
+            status: None,
+        };
+        let cidr = get_node_cidr(&node);
+        assert_eq!(cidr, None);
+    }
+
+    struct MockExecutor {
+        should_succeed: bool,
+    }
+
+    impl IpCommandExecutor for MockExecutor {
+        fn run(&self, _args: &[&str]) -> io::Result<std::process::Output> {
+            if self.should_succeed {
+                Ok(std::process::Output {
+                    status: std::process::ExitStatus::default(),
+                    stdout: vec![],
+                    stderr: vec![],
+                })
+            } else {
+                Err(io::Error::new(io::ErrorKind::Other, "command failed"))
+            }
+        }
+    }
+
+    #[test]
+    fn test_tunnel_exists_success() {
+        let mock = MockExecutor {
+            should_succeed: true,
+        };
+        let result = tunnel_exists(&mock, "tun-test");
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_tunnel_exists_failure() {
+        let mock = MockExecutor {
+            should_succeed: false,
+        };
+        let result = tunnel_exists(&mock, "tun-nonexistent");
+        assert!(!result.unwrap());
+    }
+
+    struct RouteMock {
+        has_tunnel: bool,
+    }
+
+    impl IpCommandExecutor for RouteMock {
+        fn run(&self, _args: &[&str]) -> io::Result<std::process::Output> {
+            let stdout = if self.has_tunnel {
+                b"10.244.0.0/24 via tun-test dev tun-test\n".to_vec()
+            } else {
+                b"10.244.1.0/24 via tun-other dev tun-other\n".to_vec()
+            };
+            Ok(std::process::Output {
+                status: std::process::ExitStatus::default(),
+                stdout,
+                stderr: vec![],
+            })
+        }
+    }
+
+    #[test]
+    fn test_route_exists_success_with_tunnel() {
+        let mock = RouteMock { has_tunnel: true };
+        let result = route_exists(&mock, "10.244.0.0/24", "tun-test");
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_route_exists_success_without_tunnel() {
+        let mock = RouteMock { has_tunnel: false };
+        let result = route_exists(&mock, "10.244.0.0/24", "tun-test");
+        assert!(!result.unwrap());
+    }
+
+    struct ErrorMock;
+
+    impl IpCommandExecutor for ErrorMock {
+        fn run(&self, _args: &[&str]) -> io::Result<std::process::Output> {
+            Err(io::Error::new(io::ErrorKind::Other, "command failed"))
+        }
+    }
+
+    #[test]
+    fn test_tunnel_exists_error() {
+        let mock = ErrorMock;
+        let result = tunnel_exists(&mock, "tun-test");
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn test_route_exists_error() {
+        let mock = ErrorMock;
+        let result = route_exists(&mock, "10.244.0.0/24", "tun-test");
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn test_ip_command_executor_run_empty_args() {
+        let cmd = IpCommand::new();
+        let result = cmd.run(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ip_command_executor_run() {
+        let cmd = IpCommand::new();
+        let result = cmd.run(&["link", "show", "lo"]);
+        match result {
+            Ok(_) => {}
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                eprintln!("Skipping test: ip command not found in test environment");
+            }
+            Err(e) => panic!("Unexpected error: {}", e),
+        }
     }
 }
