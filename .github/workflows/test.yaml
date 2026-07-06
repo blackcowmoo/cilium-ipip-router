@@ -55,7 +55,7 @@ jobs:
       - name: Build Docker
         run: docker build .
 
-  kind-integration:
+  e2e-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -66,9 +66,11 @@ jobs:
         with:
           toolchain: nightly
 
-      - name: Create kind cluster
-        run: |
-          kind create cluster --name cilium-router-test --config .github/config/kind-config.yaml
+      - name: Set up kind
+        uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: cilium-router-test
+          config: .github/config/kind-config.yaml
 
       - name: Verify the Kubernetes cluster
         run: |-
@@ -213,9 +215,14 @@ jobs:
             exit 1;
           )
 
-      - name: Run integration tests
+      - name: Run Rust integration tests
         run: |
           cargo test --target x86_64-unknown-linux-gnu --test integration_tests
+
+      - name: Run E2E shell tests
+        run: |
+          chmod +x tests/e2e/*.sh
+          bash tests/e2e/run.sh cilium-router-test
 
       - name: Collect logs on failure
         if: failure()
