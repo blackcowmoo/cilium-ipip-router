@@ -151,6 +151,7 @@ verify_kind_cluster() {
 # Set kubeconfig for Kind cluster
 setup_kind_kubeconfig() {
     local cluster_name=${1:-cilium-router-test}
-    export KUBECONFIG=$(kind get kubeconfig --name "$cluster_name")
+    kind get kubeconfig --name "$cluster_name" > /tmp/kubeconfig
+    export KUBECONFIG=/tmp/kubeconfig
     log_info "Kubeconfig set for cluster '$cluster_name'"
 }

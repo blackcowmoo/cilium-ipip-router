@@ -53,7 +53,8 @@ main() {
     fi
     
     # Set kubeconfig
-    export KUBECONFIG=$(kind get kubeconfig --name "$cluster_name")
+    kind get kubeconfig --name "$cluster_name" > /tmp/kubeconfig
+    export KUBECONFIG=/tmp/kubeconfig
     
     # Verify kubectl connectivity
     if ! kubectl cluster-info >/dev/null 2>&1; then
