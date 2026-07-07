@@ -8,6 +8,8 @@ set -euo pipefail
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$E2E_DIR/.." && pwd)"
 
+NAMESPACE="${NAMESPACE:-default}"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -90,7 +92,12 @@ exec_in_node() {
 
 # Get all worker nodes
 get_worker_nodes() {
-    kubectl get nodes -l node-role.kubernetes.io/worker="" -o jsonpath='{.items[*].metadata.name}'
+    local workers=$(kubectl get nodes -l node-role.kubernetes.io/worker="" -o jsonpath='{.items[*].metadata.name}')
+    if [ -z "$workers" ]; then
+        kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
+    else
+        echo "$workers"
+    fi
 }
 
 # Get all nodes (control-plane + workers)
@@ -105,12 +112,12 @@ collect_logs() {
     log_info "Collecting logs to $output_dir..."
     mkdir -p "$output_dir"
     
-    local pods=$(kubectl get pods -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
+    local pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
     
     for pod in $pods; do
         log_info "Collecting logs from $pod..."
-        kubectl logs "$pod" > "$output_dir/${pod}.log" 2>&1 || true
-        kubectl logs "$pod" -p >> "$output_dir/${pod}.log" 2>&1 || true
+        kubectl logs -n "$NAMESPACE" "$pod" > "$output_dir/${pod}.log" 2>&1 || true
+        kubectl logs -n "$NAMESPACE" "$pod" -p >> "$output_dir/${pod}.log" 2>&1 || true
     done
 }
 

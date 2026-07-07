@@ -13,7 +13,7 @@ test_name="test_health_endpoint"
 log_info "Running: $test_name"
 
 # Get all router pods
-pods=$(kubectl get pods -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
+pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
 
 if [ -z "$pods" ]; then
     log_error "No router pods found"
@@ -27,7 +27,7 @@ for pod in $pods; do
     log_info "Checking health endpoint for pod: $pod"
     
     # Test readiness probe endpoint
-    if kubectl exec "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health | grep -q "200"; then
+    if kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health | grep -q "200"; then
         log_info "  ✓ Health endpoint returned 200 OK"
         ((pass_count++))
     else
@@ -36,7 +36,7 @@ for pod in $pods; do
     fi
     
     # Test liveness probe endpoint
-    if kubectl exec "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health | grep -q "200"; then
+    if kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health | grep -q "200"; then
         log_info "  ✓ Liveness endpoint returned 200 OK"
     else
         log_error "  ✗ Liveness endpoint failed for pod $pod"

@@ -178,6 +178,9 @@ jobs:
                   app: cilium-ipip-router
               spec:
                 serviceAccountName: cilium-ipip-router
+                tolerations:
+                  - key: node-role.kubernetes.io/control-plane
+                    effect: NoSchedule
                 containers:
                   - name: router
                     image: cilium-ipip-router:test

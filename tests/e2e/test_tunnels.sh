@@ -13,7 +13,7 @@ test_name="test_ipip_tunnels"
 log_info "Running: $test_name"
 
 # Get all worker nodes
-workers=$(kubectl get nodes -l node-role.kubernetes.io/worker="" -o jsonpath='{.items[*].metadata.name}')
+workers=$(get_worker_nodes)
 
 if [ -z "$workers" ]; then
     log_error "No worker nodes found"
@@ -40,7 +40,7 @@ for worker in $workers; do
     log_info "  Expected tunnel name: $tunnel_name"
     
     # Get the pod running on this node (DaemonSet)
-    pod_name=$(kubectl get pods -l app=cilium-ipip-router -o wide | grep "$worker" | awk '{print $1}')
+    pod_name=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$worker" | awk '{print $1}')
     
     if [ -z "$pod_name" ]; then
         log_error "  ✗ No router pod found on node $worker"
@@ -52,11 +52,11 @@ for worker in $workers; do
     
     # Execute ip tunnel show to verify tunnel exists
     log_info "  Verifying IPIP tunnel exists..."
-    if kubectl exec "$pod_name" -- ip tunnel show "$tunnel_name" >/dev/null 2>&1; then
+    if kubectl exec -n "$NAMESPACE" "$pod_name" -- ip tunnel show "$tunnel_name" >/dev/null 2>&1; then
         log_info "  ✓ Tunnel '$tunnel_name' exists"
         
         # Get tunnel details to verify it's IPIP
-        tunnel_info=$(kubectl exec "$pod_name" -- ip tunnel show "$tunnel_name")
+        tunnel_info=$(kubectl exec -n "$NAMESPACE" "$pod_name" -- ip tunnel show "$tunnel_name")
         
         if echo "$tunnel_info" | grep -q "ipip"; then
             log_info "  ✓ Tunnel is IPIP mode"
@@ -74,7 +74,7 @@ for worker in $workers; do
         ((pass_count++))
     else
         log_error "  ✗ Tunnel '$tunnel_name' NOT FOUND"
-        log_error "  Tunnel details: $(kubectl exec "$pod_name" -- ip tunnel list 2>&1 || echo 'command failed')"
+        log_error "  Tunnel details: $(kubectl exec -n "$NAMESPACE" "$pod_name" -- ip tunnel list 2>&1 || echo 'command failed')"
         ((fail_count++))
     fi
 done

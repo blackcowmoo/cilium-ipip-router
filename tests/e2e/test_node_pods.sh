@@ -23,7 +23,7 @@ node_count=$(echo "$all_nodes" | wc -w)
 log_info "Total nodes: $node_count"
 
 # Get router pods
-pods=$(kubectl get pods -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
+pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
 if [ -z "$pods" ]; then
     log_error "No router pods found"
     exit 1
@@ -46,7 +46,7 @@ pass_count=0
 fail_count=0
 
 for node in $all_nodes; do
-    pods_on_node=$(kubectl get pods -l app=cilium-ipip-router -o wide | grep "$node" | wc -l)
+    pods_on_node=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$node" | wc -l)
     if [ "$pods_on_node" -eq 1 ]; then
         log_info "  ✓ Node $node has 1 router pod"
         ((pass_count++))
@@ -62,7 +62,7 @@ done
 log_info "Test 3: Checking pod status..."
 all_running=true
 for pod in $pods; do
-    phase=$(kubectl get pod "$pod" -o jsonpath='{.status.phase}')
+    phase=$(kubectl get pod "$pod" -n "$NAMESPACE" -o jsonpath='{.status.phase}')
     if [ "$phase" != "Running" ]; then
         log_error "  ✗ Pod $pod is in phase: $phase (expected Running)"
         all_running=false
@@ -76,7 +76,7 @@ fi
 # Test 4: Check pod resource limits
 log_info "Test 4: Checking pod resource limits..."
 for pod in $pods; do
-    resources=$(kubectl get pod "$pod" -o jsonpath='{.spec.containers[0].resources}' 2>/dev/null || echo "{}")
+    resources=$(kubectl get pod "$pod" -n "$NAMESPACE" -o jsonpath='{.spec.containers[0].resources}' 2>/dev/null || echo "{}")
     
     # Check if limits exist
     if echo "$resources" | grep -q "limits"; then
@@ -95,7 +95,7 @@ done
 log_info "Test 5: Checking pod image..."
 expected_image="cilium-ipip-router:test"
 for pod in $pods; do
-    image=$(kubectl get pod "$pod" -o jsonpath='{.spec.containers[0].image}')
+    image=$(kubectl get pod "$pod" -n "$NAMESPACE" -o jsonpath='{.spec.containers[0].image}')
     if [ "$image" == "$expected_image" ]; then
         log_info "  ✓ Pod $pod uses image $image"
     else

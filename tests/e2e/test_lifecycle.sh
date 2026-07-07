@@ -13,7 +13,7 @@ test_name="test_node_lifecycle"
 log_info "Running: $test_name"
 
 # Get all worker nodes
-workers=$(kubectl get nodes -l node-role.kubernetes.io/worker="" -o jsonpath='{.items[*].metadata.name}')
+workers=$(get_worker_nodes)
 
 if [ -z "$workers" ]; then
     log_error "No worker nodes found"
@@ -35,7 +35,7 @@ log_info "Testing with node: $test_node"
 
 # Get initial state
 log_info "Step 1: Get initial tunnel count"
-initial_tunnel_count=$(kubectl exec -l app=cilium-ipip-router -- sh -c "ip tunnel list | grep -c tun-" 2>/dev/null || echo "0")
+initial_tunnel_count=$(kubectl exec -n "$NAMESPACE" -l app=cilium-ipip-router -- sh -c "ip tunnel list | grep -c tun-" 2>/dev/null || echo "0")
 log_info "  Initial tunnel count: $initial_tunnel_count"
 
 # Get node IP and pod CIDR before draining
@@ -66,7 +66,7 @@ log_info "Step 4: Verifying cleanup on remaining nodes..."
 # Get a pod from another node to check routes
 other_workers=$(echo "$workers" | awk '{for(i=1;i<NF;i++) print $i}')
 check_node=$(echo "$other_workers" | head -1)
-check_pod=$(kubectl get pods -l app=cilium-ipip-router -o wide | grep "$check_node" | awk '{print $1}')
+check_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$check_node" | awk '{print $1}')
 
 if [ -n "$check_pod" ]; then
     log_info "  Checking routes on node $check_node (pod: $check_pod)..."
@@ -74,7 +74,7 @@ if [ -n "$check_pod" ]; then
     # Check that route for test_node's CIDR is gone
     tunnel_name="tun-$(echo -n "$test_node" | md5sum | cut -c1-11)"
     
-    if kubectl exec "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
+    if kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
         log_warn "  ⚠ Route for $test_node_cidr still exists (may be expected depending on cleanup timing)"
     else
         log_info "  ✓ Route for $test_node_cidr properly cleaned up"
@@ -90,7 +90,7 @@ log_info "  Node $test_node uncordoned"
 
 # Wait for pod to be recreated
 log_info "Step 6: Waiting for pod to be recreated..."
-wait_for_daemonset_ready "cilium-ipip-router" "default" 180
+wait_for_daemonset_ready "cilium-ipip-router" "$NAMESPACE" 180
 
 # Wait for routes to be recreated
 sleep 15
@@ -101,31 +101,31 @@ log_info "Step 7: Verifying routes are recreated..."
 if [ -n "$check_pod" ]; then
     log_info "  Checking routes on node $check_node (pod: $check_pod)..."
     
-    if kubectl exec "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
+    if kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
         log_info "  ✓ Route for $test_node_cidr via $tunnel_name recreated"
     else
         log_error "  ✗ Route for $test_node_cidr NOT recreated"
-        log_error "    Current routes: $(kubectl exec "$check_pod" -- ip route show 2>&1 || echo 'command failed')"
+        log_error "    Current routes: $(kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show 2>&1 || echo 'command failed')"
         ((fail_count++))
     fi
 fi
 
 # Verify test_node has its own tunnels/routes
 log_info "Step 8: Verifying test node has its tunnels/routes..."
-test_pod=$(kubectl get pods -l app=cilium-ipip-router -o wide | grep "$test_node" | awk '{print $1}')
+test_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$test_node" | awk '{print $1}')
 
 if [ -n "$test_pod" ]; then
     log_info "  Checking test pod: $test_pod"
     
     # Check tunnels
-    if kubectl exec "$test_pod" -- ip tunnel list | grep -q "tun-"; then
+    if kubectl exec -n "$NAMESPACE" "$test_pod" -- ip tunnel list | grep -q "tun-"; then
         log_info "  ✓ Tunnels exist on test node"
     else
         log_warn "  ⚠ No tunnels found on test node"
     fi
     
     # Check routes
-    route_count=$(kubectl exec "$test_pod" -- ip route show | grep -c "tun-" || echo "0")
+    route_count=$(kubectl exec -n "$NAMESPACE" "$test_pod" -- ip route show | grep -c "tun-" || echo "0")
     log_info "  Routes via tunnels on test node: $route_count"
 else
     log_error "  No router pod found on test node after uncordoning"
