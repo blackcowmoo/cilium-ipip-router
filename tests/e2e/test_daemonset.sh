@@ -59,6 +59,11 @@ fi
 
 # Test 6: Verify pod has correct labels
 log_info "Test 6: Checking pod labels..."
+pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+if [ -z "$pods" ]; then
+    log_error "  ✗ No router pods found to check labels"
+    exit 1
+fi
 pod_labels=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[0].metadata.labels.app}')
 if [ "$pod_labels" == "cilium-ipip-router" ]; then
     log_info "  ✓ Pod has correct labels"
@@ -69,7 +74,7 @@ fi
 
 # Test 7: Verify pod security context (capabilities)
 log_info "Test 7: Checking pod security context..."
-caps=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[0].spec.containers[0].securityContext.capabilities.add}' 2>/dev/null || echo "")
+caps=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[0].spec.containers[0].securityContext.capabilities.add}' 2>/dev/null || echo "missing")
 
 if echo "$caps" | grep -q "NET_ADMIN" && echo "$caps" | grep -q "SYS_ADMIN"; then
     log_info "  ✓ Pod has required capabilities (NET_ADMIN, SYS_ADMIN)"

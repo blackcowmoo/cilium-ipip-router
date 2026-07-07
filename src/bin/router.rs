@@ -15,7 +15,7 @@ async fn health(_: HttpRequest) -> impl Responder {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    log4rs::init_file("resources/log4rs.yaml", Default::default()).unwrap();
+    log4rs::init_file("/var/lib/router/resources/log4rs.yaml", Default::default()).unwrap();
 
     let builder = cilium_ipip_router::controller::Controller::builder();
     let controller_handle = ControllerHandle::new(builder.cmd_tx.clone());
