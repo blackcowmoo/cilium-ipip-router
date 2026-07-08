@@ -12,6 +12,30 @@ test_name="test_pod_distribution"
 
 log_info "Running: $test_name"
 
+# Wait for router pods to be created
+log_info "Waiting for router pods to be created..."
+wait_count=0
+while [ $wait_count -lt 180 ]; do
+    pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+    if [ -n "$pods" ]; then
+        log_info "  Found pod(s): $pods"
+        break
+    fi
+    sleep 5
+    wait_count=$((wait_count + 5))
+done
+
+if [ -z "$pods" ]; then
+    log_error "No router pods found after waiting"
+    log_info "Debugging: DaemonSet details..."
+    kubectl describe daemonset cilium-ipip-router -n "$NAMESPACE" || true
+    log_info "Debugging: All pods in $NAMESPACE namespace..."
+    kubectl get pods -n "$NAMESPACE" -o wide || true
+    log_info "Debugging: Pod events..."
+    kubectl get events -n "$NAMESPACE" --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
+    exit 1
+fi
+
 # Get all nodes
 all_nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
 if [ -z "$all_nodes" ]; then
@@ -21,13 +45,6 @@ fi
 
 node_count=$(echo "$all_nodes" | wc -w)
 log_info "Total nodes: $node_count"
-
-# Get router pods
-pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
-if [ -z "$pods" ]; then
-    log_error "No router pods found"
-    exit 1
-fi
 
 pod_count=$(echo "$pods" | wc -w)
 log_info "Router pods: $pod_count"

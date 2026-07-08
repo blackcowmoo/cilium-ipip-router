@@ -24,9 +24,34 @@ fi
 # Test 2: DaemonSet is ready
 log_info "Test 2: Checking DaemonSet is ready..."
 if kubectl rollout status daemonset/cilium-ipip-router -n "$NAMESPACE" --timeout=120s >/dev/null 2>&1; then
-    log_info "  ✓ DaemonSet rollout successful"
+    log_info "  ✓ DaemonSet rollout acknowledged"
 else
     log_error "  ✗ DaemonSet rollout failed"
+    exit 1
+fi
+
+# Wait for actual pods to be created and running
+log_info "Waiting for router pods to be created..."
+pod_count=0
+wait_count=0
+while [ $wait_count -lt 180 ]; do
+    pod_count=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router --no-headers 2>/dev/null | wc -l)
+    if [ "$pod_count" -gt 0 ]; then
+        log_info "  Found $pod_count pod(s)"
+        break
+    fi
+    sleep 5
+    wait_count=$((wait_count + 5))
+done
+
+if [ "$pod_count" -eq 0 ]; then
+    log_error "  ✗ No router pods found after rollout"
+    log_info "  Debugging: DaemonSet details..."
+    kubectl describe daemonset cilium-ipip-router -n "$NAMESPACE" || true
+    log_info "  Debugging: All pods in $NAMESPACE namespace..."
+    kubectl get pods -n "$NAMESPACE" -o wide || true
+    log_info "  Debugging: Pod events..."
+    kubectl get events -n "$NAMESPACE" --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
     exit 1
 fi
 
