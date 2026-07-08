@@ -40,7 +40,7 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Run all Rust tests with coverage
-        run: cargo tarpaulin --out Lcov --output-dir coverage --all-tests
+        run: cargo tarpaulin --out Lcov --output-dir coverage --all-targets
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
