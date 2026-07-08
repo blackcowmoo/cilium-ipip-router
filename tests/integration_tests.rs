@@ -43,10 +43,10 @@ async fn test_tunnels_exist_across_nodes() -> anyhow::Result<()> {
     // This test is a placeholder - actual tunnel verification requires executing
     // commands inside the Kind worker nodes, not from the CI runner container.
     // See tests/e2e/test_tunnels.sh for the proper implementation.
-    
+
     log::info!("Tunnel verification is implemented in E2E tests");
     log::info!("Run: bash tests/e2e/run.sh");
-    
+
     Ok(())
 }
 
@@ -56,10 +56,10 @@ async fn test_routes_exist_across_nodes() -> anyhow::Result<()> {
     // This test is a placeholder - actual route verification requires executing
     // commands inside the Kind worker nodes, not from the CI runner container.
     // See tests/e2e/test_routes.sh for the proper implementation.
-    
+
     log::info!("Route verification is implemented in E2E tests");
     log::info!("Run: bash tests/e2e/run.sh");
-    
+
     Ok(())
 }
 
@@ -69,9 +69,9 @@ async fn test_tunnels_and_routes_across_all_nodes() -> anyhow::Result<()> {
     // This test is a placeholder - actual tunnel/route verification requires executing
     // commands inside the Kind worker nodes, not from the CI runner container.
     // See tests/e2e/test_tunnels.sh and tests/e2e/test_routes.sh for proper implementation.
-    
+
     log::info!("Tunnel and route verification is implemented in E2E tests");
     log::info!("Run: bash tests/e2e/run.sh");
-    
+
     Ok(())
 }
