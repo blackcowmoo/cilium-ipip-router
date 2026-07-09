@@ -145,6 +145,12 @@ jobs:
           kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .status.conditions[*]}{.type}={.status}{"\t"}{.message}{"\n"}{end}{end}' || true
           echo "::endgroup::"
 
+      - name: Wait for Cilium to be ready
+        run: |
+          kind get kubeconfig --name cilium-router-test > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          cilium status --wait --wait-duration=5m
+
       - name: Build Docker image
         run: docker build -t cilium-ipip-router:test .
 
