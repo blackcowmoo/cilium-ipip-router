@@ -218,6 +218,16 @@ jobs:
             exit 1;
           )
 
+      - name: Verify router pods are running
+        run: |
+          set -x
+          kubectl wait --for=condition=ready pod -l app=cilium-ipip-router --namespace=default --timeout=120s || (
+            echo 'No router pods found after rollout';
+            kubectl get pods -l app=cilium-ipip-router -o wide;
+            kubectl describe daemonset cilium-ipip-router;
+            exit 1;
+          )
+
       - name: Run Rust integration tests
         run: |
           cargo test --target x86_64-unknown-linux-gnu --test integration_tests
