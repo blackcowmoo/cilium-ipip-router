@@ -95,7 +95,7 @@ jobs:
           MASTER_IP=$(kubectl get node cilium-router-test-control-plane -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
           cilium install --version 1.18 \
             --set ipam.mode=kubernetes \
-            --set routingMode=direct \
+            --set routingMode=native \
             --set tunnelProtocol=disabled \
             --set kubeProxyReplacement=true \
             --set hubble.enable=false \
