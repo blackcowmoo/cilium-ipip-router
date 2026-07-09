@@ -132,6 +132,15 @@ jobs:
       - name: Load image into kind cluster
         run: kind load docker-image cilium-ipip-router:test --name cilium-router-test
 
+      - name: Wait for nodes to be ready
+        run: |
+          kubectl wait --for=condition=Ready nodes --all --timeout=120s || (
+            echo 'Nodes not ready after timeout';
+            kubectl get nodes -o yaml;
+            kubectl get pods -n kube-system -o yaml;
+            exit 1;
+          )
+
       - name: Deploy controller
         run: |
           kubectl apply -f - <<EOF
