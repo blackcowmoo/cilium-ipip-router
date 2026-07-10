@@ -133,10 +133,7 @@ pub async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, execut
     match node_ip {
         Some(ref ip) => {
             if get_local_hostname().as_deref() == Some(node_name.as_str()) {
-                log::info!(
-                    "Skipping route creation for local node {}",
-                    node_name
-                );
+                log::info!("Skipping route creation for local node {}", node_name);
                 return;
             }
             let tunnel_name = get_tunnel_name(&node_name);
