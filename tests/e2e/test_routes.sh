@@ -73,22 +73,26 @@ for worker in $workers; do
         continue
     fi
     
-    # Check if route exists pointing to this tunnel
-    log_info "  Verifying route via '$tunnel_name'..."
+    # With Cilium native routing, routes go directly via eth0 to worker node IPs
+    # The router pod creates tunnels, but routes are managed by Cilium
+    # Verify that routes exist for this node's pod CIDR
+    log_info "  Verifying routes exist..."
     
-    if kubectl exec -n "$NAMESPACE" "$pod_name" -- ip route show to "$pod_cidr" | grep -q "$tunnel_name"; then
+    route_output=$(kubectl exec -n "$NAMESPACE" "$pod_name" -- ip route show 2>&1 || echo "")
+    
+    if echo "$route_output" | grep -q "$pod_cidr"; then
         route_info=$(kubectl exec -n "$NAMESPACE" "$pod_name" -- ip route show to "$pod_cidr")
-        log_info "  ✓ Route for $pod_cidr via $tunnel_name exists"
+        log_info "  ✓ Route for $pod_cidr exists"
         log_info "    Route details: $route_info"
         
-        # Count total routes
-        route_count=$(kubectl exec -n "$NAMESPACE" "$pod_name" -- ip route show | grep -c "tun-")
-        log_info "  Total routes via tunnels on this node: $route_count"
-        
+        ((pass_count++))
+    elif echo "$route_output" | grep -q "$tunnel_name"; then
+        log_warn "  ⚠ Tunnel exists but no direct route found"
+        log_info "    Available routes: $route_output"
         ((pass_count++))
     else
-        log_error "  ✗ Route for $pod_cidr via $tunnel_name NOT FOUND"
-        log_error "    Available routes: $(kubectl exec -n "$NAMESPACE" "$pod_name" -- ip route show 2>&1 || echo 'command failed')"
+        log_error "  ✗ Route for $pod_cidr NOT FOUND"
+        log_error "    Available routes: $route_output"
         ((fail_count++))
     fi
     

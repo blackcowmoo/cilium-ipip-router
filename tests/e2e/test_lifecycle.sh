@@ -122,6 +122,8 @@ sleep 15
 # Step 7: Verify routes are recreated
 log_info "Step 7: Verifying routes are recreated..."
 
+fail_count=0
+
 if [ -n "$check_pod" ]; then
     log_info "  Checking routes on node $check_node (pod: $check_pod)..."
     
@@ -154,6 +156,11 @@ if [ -n "$test_pod" ]; then
 else
     log_error "  No router pod found on test node after uncordoning"
     ((fail_count++))
+fi
+
+if [ $fail_count -gt 0 ]; then
+    log_error "$test_name FAILED"
+    exit 1
 fi
 
 log_info "Node lifecycle test completed"
