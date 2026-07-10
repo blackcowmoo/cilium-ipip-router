@@ -86,7 +86,7 @@ jobs:
           kubectl get pods -o yaml -n kube-system
           echo "::endgroup::"
 
-      - name: Install Cilium with IPIP tunneling
+      - name: Install Cilium with native routing
         run: |
           kind get kubeconfig --name cilium-router-test > /tmp/kubeconfig
           export KUBECONFIG=/tmp/kubeconfig
@@ -97,7 +97,6 @@ jobs:
             --set ipam.mode=kubernetes \
             --set routingMode=native \
             --set ipv4NativeRoutingCIDR=10.244.0.0/16 \
-            --set tunnelProtocol=disabled \
             --set kubeProxyReplacement=true \
             --set hubble.enable=false \
             --set operator.enable=true \
