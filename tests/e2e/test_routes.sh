@@ -65,7 +65,7 @@ for worker in $workers; do
     log_info "  Expected tunnel: $tunnel_name"
     
     # Get the pod running on this node
-    pod_name=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$worker" | awk '{print $1}')
+    pod_name=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$worker" | awk '{print $1}' || true)
     
     if [ -z "$pod_name" ]; then
         log_error "  No router pod found on node $worker"

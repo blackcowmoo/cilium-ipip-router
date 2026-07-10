@@ -63,7 +63,7 @@ pass_count=0
 fail_count=0
 
 for node in $all_nodes; do
-    pods_on_node=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$node" | wc -l)
+    pods_on_node=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep -c "$node" || true)
     if [ "$pods_on_node" -eq 1 ]; then
         log_info "  ✓ Node $node has 1 router pod"
         ((pass_count++))

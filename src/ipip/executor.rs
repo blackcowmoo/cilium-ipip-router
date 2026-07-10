@@ -80,6 +80,10 @@ pub fn get_node_cidr(node: &Node) -> Option<String> {
     node.spec.as_ref()?.pod_cidr.clone()
 }
 
+pub fn get_local_hostname() -> Option<String> {
+    std::env::var("HOSTNAME").ok()
+}
+
 pub fn get_tunnel_name(node_name: &str) -> String {
     use md5::compute;
     let hash = compute(node_name);
@@ -128,6 +132,13 @@ pub async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, execut
 
     match node_ip {
         Some(ref ip) => {
+            if get_local_hostname().as_deref() == Some(node_name.as_str()) {
+                log::info!(
+                    "Skipping route creation for local node {}",
+                    node_name
+                );
+                return;
+            }
             let tunnel_name = get_tunnel_name(&node_name);
 
             match get_local_node_ip().await {
@@ -477,6 +488,13 @@ mod tests {
         let cmd = IpCommand::new();
         let result = cmd.run(&[]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_local_hostname() {
+        let hostname = get_local_hostname();
+        // HOSTNAME env var may or may not be set in test env
+        assert!(hostname.is_some() || hostname.is_none());
     }
 
     #[test]

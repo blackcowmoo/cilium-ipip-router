@@ -44,7 +44,8 @@ for pod in $pods; do
     log_info "Checking health endpoint for pod: $pod"
     
     # Test readiness probe endpoint
-    if kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health | grep -q "200"; then
+    http_code=$(kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health 2>/dev/null || true)
+    if [ "$http_code" = "200" ]; then
         log_info "  ✓ Health endpoint returned 200 OK"
         ((pass_count++))
     else
@@ -53,7 +54,8 @@ for pod in $pods; do
     fi
     
     # Test liveness probe endpoint
-    if kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health | grep -q "200"; then
+    http_code=$(kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health 2>/dev/null || true)
+    if [ "$http_code" = "200" ]; then
         log_info "  ✓ Liveness endpoint returned 200 OK"
     else
         log_error "  ✗ Liveness endpoint failed for pod $pod"

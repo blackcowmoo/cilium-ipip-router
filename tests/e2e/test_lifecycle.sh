@@ -90,7 +90,7 @@ log_info "Step 4: Verifying cleanup on remaining nodes..."
 # Get a pod from another node to check routes
 other_workers=$(echo "$workers" | awk '{for(i=1;i<NF;i++) print $i}')
 check_node=$(echo "$other_workers" | head -1)
-check_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$check_node" | awk '{print $1}')
+check_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$check_node" | awk '{print $1}' || true)
 
 if [ -n "$check_pod" ]; then
     log_info "  Checking routes on node $check_node (pod: $check_pod)..."
@@ -138,7 +138,7 @@ fi
 
 # Verify test_node has its own tunnels/routes
 log_info "Step 8: Verifying test node has its tunnels/routes..."
-test_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$test_node" | awk '{print $1}')
+test_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$test_node" | awk '{print $1}' || true)
 
 if [ -n "$test_pod" ]; then
     log_info "  Checking test pod: $test_pod"

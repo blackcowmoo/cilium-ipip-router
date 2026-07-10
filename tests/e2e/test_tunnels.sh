@@ -64,7 +64,7 @@ for worker in $workers; do
     log_info "  Expected tunnel name: $tunnel_name"
     
     # Get the pod running on this node (DaemonSet)
-    pod_name=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$worker" | awk '{print $1}')
+    pod_name=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$worker" | awk '{print $1}' || true)
     
     if [ -z "$pod_name" ]; then
         log_error "  ✗ No router pod found on node $worker"
@@ -104,8 +104,8 @@ if [ $(echo "$workers" | wc -w) -ge 2 ]; then
     node_a="${worker_list[0]}"
     node_b="${worker_list[1]}"
     
-    pod_a=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$node_a" | awk '{print $1}')
-    pod_b=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$node_b" | awk '{print $1}')
+    pod_a=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$node_a" | awk '{print $1}' || true)
+    pod_b=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$node_b" | awk '{print $1}' || true)
     
     if [ -n "$pod_a" ] && [ -n "$pod_b" ]; then
         # Get pod B's IP
