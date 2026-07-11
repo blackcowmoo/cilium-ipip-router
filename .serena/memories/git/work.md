@@ -1,0 +1,1 @@
+Fixed compilation error in router.rs by changing import from `builder::RoutingMode` (private module) to using the public re-export `RoutingMode` from `controller`. The commit has been created.
