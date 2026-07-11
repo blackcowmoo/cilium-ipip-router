@@ -29,8 +29,8 @@ async fn main() -> anyhow::Result<()> {
         });
     log::info!("Using routing mode: {:?}", routing_mode);
 
-    let builder = cilium_ipip_router::controller::Controller::builder()
-        .with_routing_mode(routing_mode);
+    let builder =
+        cilium_ipip_router::controller::Controller::builder().with_routing_mode(routing_mode);
     let controller_handle = ControllerHandle::new(builder.cmd_tx.clone());
 
     let controller_task = tokio::spawn(async move {

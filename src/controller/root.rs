@@ -1,4 +1,7 @@
-use super::{builder::ControllerBuilder, builder::RoutingMode, handle::ControllerCommand, handle::ControllerHandle};
+use super::{
+    builder::ControllerBuilder, builder::RoutingMode, handle::ControllerCommand,
+    handle::ControllerHandle,
+};
 use crate::ipip::executor::{delete_route_with_executor, update_route_with_executor, IpCommand};
 use crate::ipip::Node;
 
@@ -77,7 +80,10 @@ impl ControllerInner {
         crate::ipip::executor::tunnel_exists(executor, tunnel_name)
     }
 
-    pub async fn watch(mut builder: ControllerBuilder, routing_mode: super::builder::RoutingMode) -> io::Result<()> {
+    pub async fn watch(
+        mut builder: ControllerBuilder,
+        routing_mode: super::builder::RoutingMode,
+    ) -> io::Result<()> {
         let client = match Client::try_default().await {
             Ok(c) => c,
             Err(e) => {
@@ -104,7 +110,9 @@ impl ControllerInner {
 
         let skip_route_management = matches!(routing_mode, super::builder::RoutingMode::Native);
         if skip_route_management {
-            log::info!("Routing mode is native, skipping manual route management (Cilium handles routing)");
+            log::info!(
+                "Routing mode is native, skipping manual route management (Cilium handles routing)"
+            );
         }
 
         let mut tick = time::interval(Duration::from_secs(1));
