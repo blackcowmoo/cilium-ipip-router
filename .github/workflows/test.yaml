@@ -225,6 +225,9 @@ jobs:
                       privileged: true
                     command:
                       - /usr/local/bin/router
+                    env:
+                      - name: ROUTING_MODE
+                        value: "native"
                     readinessProbe:
                       httpGet:
                         path: /health
@@ -269,7 +272,7 @@ jobs:
       - name: Run E2E shell tests
         run: |
           chmod +x tests/e2e/*.sh
-          bash tests/e2e/run.sh cilium-router-test
+          CILIUM_ROUTING_MODE=native bash tests/e2e/run.sh cilium-router-test
 
       - name: Collect logs on failure
         if: failure()

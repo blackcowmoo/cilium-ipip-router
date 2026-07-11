@@ -2,23 +2,44 @@ use super::handle::ControllerCommand;
 /// [Server] builder.
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum RoutingMode {
+    Native,
+    Direct,
+}
+
+impl Default for RoutingMode {
+    fn default() -> Self {
+        RoutingMode::Direct
+    }
+}
+
 pub struct ControllerBuilder {
     pub cmd_tx: UnboundedSender<ControllerCommand>,
     pub cmd_rx: UnboundedReceiver<ControllerCommand>,
-}
-
-impl Default for ControllerBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub routing_mode: RoutingMode,
 }
 
 impl ControllerBuilder {
     /// Create new Server builder instance
     pub fn new() -> ControllerBuilder {
         let (cmd_tx, cmd_rx) = unbounded_channel();
+        ControllerBuilder {
+            cmd_tx,
+            cmd_rx,
+            routing_mode: RoutingMode::default(),
+        }
+    }
 
-        ControllerBuilder { cmd_tx, cmd_rx }
+    pub fn with_routing_mode(mut self, mode: RoutingMode) -> Self {
+        self.routing_mode = mode;
+        self
+    }
+}
+
+impl Default for ControllerBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

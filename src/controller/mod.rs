@@ -1,4 +1,5 @@
 pub mod root;
+pub use builder::RoutingMode;
 pub use handle::ControllerHandle;
 pub use root::*;
 

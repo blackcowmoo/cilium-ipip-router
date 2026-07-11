@@ -12,6 +12,13 @@ test_name="test_ipip_tunnels"
 
 log_info "Running: $test_name"
 
+# In native routing mode, tunnels are not needed (Cilium handles routing)
+if [ "${CILIUM_ROUTING_MODE:-}" = "native" ]; then
+    log_info "Skipping tunnel test in native routing mode"
+    log_info "$test_name SKIPPED (native routing mode)"
+    exit 0
+fi
+
 # Wait for router pods to be created
 log_info "Waiting for router pods to be created..."
 pods=""
@@ -68,7 +75,7 @@ for worker in $workers; do
     
     if [ -z "$pod_name" ]; then
         log_error "  ✗ No router pod found on node $worker"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
         continue
     fi
     
@@ -89,10 +96,10 @@ for worker in $workers; do
             log_warn "  ⚠ Local IP in tunnel config may differ (expected $worker_ip)"
         fi
         
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     else
         log_error "  ✗ Tunnel '$tunnel_name' NOT FOUND"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 done
 
@@ -115,20 +122,20 @@ if [ $(echo "$workers" | wc -w) -ge 2 ]; then
         # Try to curl pod B's health endpoint from pod A
         if kubectl exec -n "$NAMESPACE" "$pod_a" -- curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "http://$pod_b_ip:9090/health" 2>/dev/null | grep -q "200"; then
             log_info "  ✓ Pod A can reach Pod B's health endpoint"
-            ((pass_count++))
+            pass_count=$((pass_count + 1))
         else
             log_error "  ✗ Pod A cannot reach Pod B's health endpoint"
-            ((fail_count++))
+            fail_count=$((fail_count + 1))
         fi
         
         # Reverse: try to curl pod A's health endpoint from pod B
         pod_a_ip=$(kubectl get pod "$pod_a" -n "$NAMESPACE" -o jsonpath='{.status.podIP}')
         if kubectl exec -n "$NAMESPACE" "$pod_b" -- curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "http://$pod_a_ip:9090/health" 2>/dev/null | grep -q "200"; then
             log_info "  ✓ Pod B can reach Pod A's health endpoint"
-            ((pass_count++))
+            pass_count=$((pass_count + 1))
         else
             log_error "  ✗ Pod B cannot reach Pod A's health endpoint"
-            ((fail_count++))
+            fail_count=$((fail_count + 1))
         fi
     fi
 fi

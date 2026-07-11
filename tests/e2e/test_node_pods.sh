@@ -66,12 +66,12 @@ for node in $all_nodes; do
     pods_on_node=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep -c "$node" || true)
     if [ "$pods_on_node" -eq 1 ]; then
         log_info "  ✓ Node $node has 1 router pod"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     elif [ "$pods_on_node" -eq 0 ]; then
         log_warn "  ⚠ Node $node has 0 router pods (may be control plane)"
     else
         log_error "  ✗ Node $node has $pods_on_node router pods (expected 1)"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 done
 

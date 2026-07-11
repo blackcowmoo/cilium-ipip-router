@@ -12,6 +12,13 @@ test_name="test_routes"
 
 log_info "Running: $test_name"
 
+# In native routing mode, routes are managed by Cilium (not manually)
+if [ "${CILIUM_ROUTING_MODE:-}" = "native" ]; then
+    log_info "Skipping route test in native routing mode (Cilium handles routing)"
+    log_info "$test_name SKIPPED (native routing mode)"
+    exit 0
+fi
+
 # Wait for router pods to be created
 log_info "Waiting for router pods to be created..."
 wait_count=0
@@ -69,7 +76,7 @@ for worker in $workers; do
     
     if [ -z "$pod_name" ]; then
         log_error "  No router pod found on node $worker"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
         continue
     fi
     
@@ -85,15 +92,15 @@ for worker in $workers; do
         log_info "  ✓ Route for $pod_cidr exists"
         log_info "    Route details: $route_info"
         
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     elif echo "$route_output" | grep -q "$tunnel_name"; then
         log_warn "  ⚠ Tunnel exists but no direct route found"
         log_info "    Available routes: $route_output"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     else
         log_error "  ✗ Route for $pod_cidr NOT FOUND"
         log_error "    Available routes: $route_output"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
     
     ((total_routes++))

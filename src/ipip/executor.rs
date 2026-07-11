@@ -33,9 +33,10 @@ impl IpCommandExecutor for IpCommand {
         }
         let output = Command::new("ip").args(args).output()?;
         if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             return Err(io::Error::other(format!(
-                "ip command failed: {:?}",
-                output.status
+                "ip command failed (exit: {:?}): {}",
+                output.status, stderr
             )));
         }
         Ok(output)
@@ -214,27 +215,33 @@ pub async fn update_route_with_executor<T: IpCommandExecutor>(node: Node, execut
                 }
             }
 
-            if let Ok(output) = executor.run(&["route", "add", &cidr, "dev", &tunnel_name]) {
-                if output.status.success() {
-                    log::info!(
-                        "Added route for node {} CIDR {} via tunnel {}",
+            match executor.run(&["route", "add", &cidr, "dev", &tunnel_name]) {
+                Ok(output) => {
+                    if output.status.success() {
+                        log::info!(
+                            "Added route for node {} CIDR {} via tunnel {}",
+                            node_name,
+                            cidr,
+                            tunnel_name
+                        );
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                        log::error!(
+                            "Failed to add route for node {} CIDR {}: ip route add failed: {}",
+                            node_name,
+                            cidr,
+                            stderr
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::error!(
+                        "Failed to add route for node {} CIDR {}: {}",
                         node_name,
                         cidr,
-                        tunnel_name
-                    );
-                } else {
-                    log::error!(
-                        "Failed to add route for node {} CIDR {}: command failed",
-                        node_name,
-                        cidr
+                        e
                     );
                 }
-            } else {
-                log::error!(
-                    "Failed to add route for node {} CIDR {}: command error",
-                    node_name,
-                    cidr
-                );
             }
         }
         None => {
@@ -250,27 +257,31 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
     let tunnel_name = get_tunnel_name(&node_name);
 
     if let (Some(cidr), Some(_ip)) = (node_cidr, node_ip) {
-        if let Ok(output) = executor.run(&["route", "del", &cidr, "dev", &tunnel_name]) {
-            if output.status.success() {
-                log::info!(
-                    "Deleted route for node {} CIDR {} via tunnel {}",
+        match executor.run(&["route", "del", &cidr, "dev", &tunnel_name]) {
+            Ok(output) => {
+                if output.status.success() {
+                    log::info!(
+                        "Deleted route for node {} CIDR {} via tunnel {}",
+                        node_name,
+                        cidr,
+                        tunnel_name
+                    );
+                } else {
+                    log::error!(
+                        "Failed to delete route for node {} CIDR {}: command failed",
+                        node_name,
+                        cidr
+                    );
+                }
+            }
+            Err(e) => {
+                log::error!(
+                    "Failed to delete route for node {} CIDR {}: {}",
                     node_name,
                     cidr,
-                    tunnel_name
-                );
-            } else {
-                log::error!(
-                    "Failed to delete route for node {} CIDR {}: command failed",
-                    node_name,
-                    cidr
+                    e
                 );
             }
-        } else {
-            log::error!(
-                "Failed to delete route for node {} CIDR {}: command error",
-                node_name,
-                cidr
-            );
         }
     }
 

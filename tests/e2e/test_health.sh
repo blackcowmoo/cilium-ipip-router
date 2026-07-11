@@ -47,10 +47,10 @@ for pod in $pods; do
     http_code=$(kubectl exec -n "$NAMESPACE" "$pod" -- curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health 2>/dev/null || true)
     if [ "$http_code" = "200" ]; then
         log_info "  ✓ Health endpoint returned 200 OK"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     else
         log_error "  ✗ Health endpoint failed for pod $pod"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
     
     # Test liveness probe endpoint
@@ -59,7 +59,7 @@ for pod in $pods; do
         log_info "  ✓ Liveness endpoint returned 200 OK"
     else
         log_error "  ✗ Liveness endpoint failed for pod $pod"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 done
 

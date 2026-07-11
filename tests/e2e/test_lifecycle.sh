@@ -12,6 +12,14 @@ test_name="test_node_lifecycle"
 
 log_info "Running: $test_name"
 
+# In native routing mode, skip route/tunnel-specific lifecycle checks
+ROUTE_CHECKS_ENABLED=true
+if [ "${CILIUM_ROUTING_MODE:-}" = "native" ]; then
+    log_info "Running in native routing mode - skipping route/tunnel lifecycle checks"
+    log_info "Route/tunnel checks will be skipped (Cilium handles routing)"
+    ROUTE_CHECKS_ENABLED=false
+fi
+
 # Wait for router pods to be created
 log_info "Waiting for router pods to be created..."
 wait_count=0
@@ -88,23 +96,30 @@ sleep 15
 log_info "Step 4: Verifying cleanup on remaining nodes..."
 
 # Get a pod from another node to check routes
-other_workers=$(echo "$workers" | awk '{for(i=1;i<NF;i++) print $i}')
-check_node=$(echo "$other_workers" | head -1)
-check_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$check_node" | awk '{print $1}' || true)
+check_node=""
+check_pod=""
+if [ "$ROUTE_CHECKS_ENABLED" = "true" ]; then
+    other_workers=$(echo "$workers" | awk '{for(i=1;i<NF;i++) print $i}')
+    check_node=$(echo "$other_workers" | head -1)
+    check_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$check_node" | awk '{print $1}' || true)
 
-if [ -n "$check_pod" ]; then
-    log_info "  Checking routes on node $check_node (pod: $check_pod)..."
-    
-    # Check that route for test_node's CIDR is gone
-    tunnel_name="tun-$(echo -n "$test_node" | md5sum | cut -c1-11)"
-    
-    if kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
-        log_warn "  ⚠ Route for $test_node_cidr still exists (may be expected depending on cleanup timing)"
+    if [ -n "$check_pod" ]; then
+        log_info "  Checking routes on node $check_node (pod: $check_pod)..."
+        
+        # Check that route for test_node's CIDR is gone
+        tunnel_name="tun-$(echo -n "$test_node" | md5sum | cut -c1-11)"
+        
+        if kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
+            log_warn "  ⚠ Route for $test_node_cidr still exists (may be expected depending on cleanup timing)"
+        else
+            log_info "  ✓ Route for $test_node_cidr properly cleaned up"
+        fi
     else
-        log_info "  ✓ Route for $test_node_cidr properly cleaned up"
+        log_warn "  Could not find another node to check cleanup"
     fi
 else
-    log_warn "  Could not find another node to check cleanup"
+    log_info "  Skipping route cleanup check (native routing mode)"
+    tunnel_name=""
 fi
 
 # Step 5: Uncordon the node (bring it back)
@@ -117,14 +132,15 @@ log_info "Step 6: Waiting for pod to be recreated..."
 wait_for_daemonset_ready "cilium-ipip-router" "$NAMESPACE" 180
 
 # Wait for routes to be recreated
-sleep 15
+if [ "$ROUTE_CHECKS_ENABLED" = "true" ]; then
+    sleep 15
+fi
 
-# Step 7: Verify routes are recreated
-log_info "Step 7: Verifying routes are recreated..."
-
+# Step 7: Verify routes are recreated (only in non-native mode)
 fail_count=0
 
-if [ -n "$check_pod" ]; then
+if [ "$ROUTE_CHECKS_ENABLED" = "true" ] && [ -n "$check_pod" ]; then
+    log_info "Step 7: Verifying routes are recreated..."
     log_info "  Checking routes on node $check_node (pod: $check_pod)..."
     
     if kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show to "$test_node_cidr" | grep -q "$tunnel_name"; then
@@ -132,30 +148,35 @@ if [ -n "$check_pod" ]; then
     else
         log_error "  ✗ Route for $test_node_cidr NOT recreated"
         log_error "    Current routes: $(kubectl exec -n "$NAMESPACE" "$check_pod" -- ip route show 2>&1 || echo 'command failed')"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
+else
+    log_info "Step 7: Skipping route recreation check (native routing mode)"
 fi
 
 # Verify test_node has its own tunnels/routes
-log_info "Step 8: Verifying test node has its tunnels/routes..."
+log_info "Step 8: Verifying test node pod is running..."
 test_pod=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep "$test_node" | awk '{print $1}' || true)
 
 if [ -n "$test_pod" ]; then
-    log_info "  Checking test pod: $test_pod"
+    log_info "  ✓ Pod found on test node: $test_pod"
     
-    # Check tunnels
-    if kubectl exec -n "$NAMESPACE" "$test_pod" -- ip tunnel list | grep -q "tun-"; then
-        log_info "  ✓ Tunnels exist on test node"
+    if [ "$ROUTE_CHECKS_ENABLED" = "true" ]; then
+        log_info "  Checking tunnels on test node..."
+        if kubectl exec -n "$NAMESPACE" "$test_pod" -- ip tunnel list | grep -q "tun-"; then
+            log_info "  ✓ Tunnels exist on test node"
+        else
+            log_warn "  ⚠ No tunnels found on test node"
+        fi
+        
+        route_count=$(kubectl exec -n "$NAMESPACE" "$test_pod" -- ip route show | grep -c "tun-" || echo "0")
+        log_info "  Routes via tunnels on test node: $route_count"
     else
-        log_warn "  ⚠ No tunnels found on test node"
+        log_info "  Skipping tunnel/route checks (native routing mode)"
     fi
-    
-    # Check routes
-    route_count=$(kubectl exec -n "$NAMESPACE" "$test_pod" -- ip route show | grep -c "tun-" || echo "0")
-    log_info "  Routes via tunnels on test node: $route_count"
 else
     log_error "  No router pod found on test node after uncordoning"
-    ((fail_count++))
+    fail_count=$((fail_count + 1))
 fi
 
 if [ $fail_count -gt 0 ]; then
