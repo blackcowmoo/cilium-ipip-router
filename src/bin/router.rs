@@ -2,7 +2,7 @@
 use actix_web::{
     get, middleware, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use cilium_ipip_router::controller::{builder::RoutingMode, ControllerHandle};
+use cilium_ipip_router::controller::{ControllerHandle, RoutingMode};
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::broadcast,
