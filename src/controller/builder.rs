@@ -2,16 +2,11 @@ use super::handle::ControllerCommand;
 /// [Server] builder.
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum RoutingMode {
     Native,
+    #[default]
     Direct,
-}
-
-impl Default for RoutingMode {
-    fn default() -> Self {
-        RoutingMode::Direct
-    }
 }
 
 pub struct ControllerBuilder {
