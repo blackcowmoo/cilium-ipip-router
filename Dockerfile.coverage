@@ -1,0 +1,11 @@
+FROM debian:trixie-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends iproute2 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY coverage/router /usr/local/bin/router
+COPY resources/log4rs.yaml /var/lib/router/resources/log4rs.yaml
+
+WORKDIR /var/lib/router
+CMD ["router"]
