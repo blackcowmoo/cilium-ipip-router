@@ -73,6 +73,10 @@ The E2E test suite covers:
 
 The E2E tests are run as part of the GitHub Actions workflow in `.github/workflows/test.yaml` under the `e2e-tests` job.
 
+CI builds the router with LLVM coverage instrumentation. After the unit and E2E tests
+finish, raw profiles from every router pod are collected and merged into one LCOV report
+before it is uploaded to Coveralls.
+
 Cilium runs in native-routing mode with automatic direct routes disabled and legacy host
 routing enabled. This delegates remote PodCIDR routing to the Linux routing table, where
 this project installs its IPIP tunnels and routes.

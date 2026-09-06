@@ -28,29 +28,6 @@ jobs:
       - name: Clippy
         run: cargo clippy --target x86_64-unknown-linux-gnu -- -D warnings
 
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: nightly
-
-      - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
-
-      - name: Run all Rust tests with coverage
-        run: cargo tarpaulin --out Lcov --output-dir coverage --all-targets
-
-      - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: coverage/lcov.info
-
   docker-build:
     runs-on: ubuntu-latest
     steps:
@@ -72,6 +49,24 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Run unit tests and build the coverage-instrumented router
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo llvm-cov clean --workspace
+
+          # cargo-llvm-cov generates the sourced environment.
+          # shellcheck disable=SC1090
+          source <(cargo llvm-cov show-env --sh)
+          cargo test --all-targets
+          cargo build --bin router
+          mkdir -p coverage
+          cp target/debug/router coverage/router
 
       - name: Set up kind
         uses: helm/kind-action@v1.14.0
@@ -156,8 +151,8 @@ jobs:
         run: |
           cilium status --wait --wait-duration=5m
 
-      - name: Build Docker image
-        run: docker build -t cilium-ipip-router:test .
+      - name: Build coverage-instrumented Docker image
+        run: docker build -f Dockerfile.coverage -t cilium-ipip-router:test .
 
       - name: Load image into kind cluster
         run: kind load docker-image cilium-ipip-router:test --name cilium-router-test
@@ -237,6 +232,11 @@ jobs:
                         valueFrom:
                           fieldRef:
                             fieldPath: spec.nodeName
+                      - name: LLVM_PROFILE_FILE
+                        value: /coverage/router-%p-%m.profraw
+                    volumeMounts:
+                      - name: coverage
+                        mountPath: /coverage
                     readinessProbe:
                       httpGet:
                         path: /health
@@ -251,6 +251,9 @@ jobs:
                       initialDelaySeconds: 15
                       periodSeconds: 10
                       timeoutSeconds: 5
+                volumes:
+                  - name: coverage
+                    emptyDir: {}
           EOF
 
       - name: Wait for daemonset to be ready
@@ -275,13 +278,101 @@ jobs:
           )
 
       - name: Run Rust Kubernetes integration tests
+        shell: bash
         run: |
-          cargo test --target x86_64-unknown-linux-gnu --test e2e_integration_tests -- --ignored --test-threads=1
+          set -euo pipefail
+          # cargo-llvm-cov generates the sourced environment.
+          # shellcheck disable=SC1090
+          source <(cargo llvm-cov show-env --sh)
+          cargo test --test e2e_integration_tests -- --ignored --test-threads=1
 
       - name: Run E2E shell tests
         run: |
           chmod +x tests/e2e/*.sh
           bash tests/e2e/run.sh cilium-router-test
+
+      - name: Collect router coverage profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t pods < <(kubectl get pods -n default -l app=cilium-ipip-router \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+          if [ "${#pods[@]}" -eq 0 ]; then
+            echo "No router pods found for coverage collection" >&2
+            exit 1
+          fi
+
+          mkdir -p target
+          collected=0
+          for pod in "${pods[@]}"; do
+            initial_restarts=$(kubectl get pod "$pod" -n default \
+              -o jsonpath='{.status.containerStatuses[?(@.name=="router")].restartCount}')
+
+            # LLVM writes the raw profile when the instrumented process exits.
+            kubectl exec "$pod" -n default -c router -- sh -c 'kill -TERM 1'
+
+            restarted=false
+            for _ in $(seq 1 60); do
+              current_restarts=$(kubectl get pod "$pod" -n default \
+                -o jsonpath='{.status.containerStatuses[?(@.name=="router")].restartCount}')
+              if [ "${current_restarts:-0}" -gt "${initial_restarts:-0}" ]; then
+                restarted=true
+                break
+              fi
+              sleep 1
+            done
+            if [ "$restarted" != true ]; then
+              echo "Router container in $pod did not restart after profile flush" >&2
+              exit 1
+            fi
+
+            profile_files=""
+            for _ in $(seq 1 30); do
+              # The shell expression expands inside the pod.
+              # shellcheck disable=SC2016
+              profile_files=$(kubectl exec "$pod" -n default -c router -- sh -c \
+                'for file in /coverage/*.profraw; do [ -f "$file" ] && printf "%s\n" "$file"; done' \
+                2>/dev/null || true)
+              [ -n "$profile_files" ] && break
+              sleep 1
+            done
+            if [ -z "$profile_files" ]; then
+              echo "No router coverage profile was produced in $pod" >&2
+              exit 1
+            fi
+
+            profile_index=0
+            while IFS= read -r remote_profile; do
+              [ -z "$remote_profile" ] && continue
+              local_profile="target/e2e-${pod}-${profile_index}.profraw"
+              kubectl exec "$pod" -n default -c router -- cat "$remote_profile" > "$local_profile"
+              if [ ! -s "$local_profile" ]; then
+                echo "Collected an empty coverage profile from $pod" >&2
+                exit 1
+              fi
+              profile_index=$((profile_index + 1))
+              collected=$((collected + 1))
+            done <<< "$profile_files"
+          done
+
+          echo "Collected $collected router coverage profiles from ${#pods[@]} pods"
+
+      - name: Generate combined unit and E2E coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          # cargo-llvm-cov generates the sourced environment.
+          # shellcheck disable=SC1090
+          source <(cargo llvm-cov show-env --sh)
+          mkdir -p coverage
+          cargo llvm-cov report --lcov --output-path coverage/lcov.info
+
+      - name: Upload combined coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage/lcov.info
 
       - name: Collect logs on failure
         if: failure()
