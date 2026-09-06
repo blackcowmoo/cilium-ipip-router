@@ -2,7 +2,7 @@
 use actix_web::{
     get, middleware, web::Data, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use cilium_ipip_router::controller::{ControllerHandle, RoutingMode};
+use cilium_ipip_router::controller::ControllerHandle;
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::broadcast,
@@ -17,20 +17,7 @@ async fn health(_: HttpRequest) -> impl Responder {
 async fn main() -> anyhow::Result<()> {
     log4rs::init_file("/var/lib/router/resources/log4rs.yaml", Default::default()).unwrap();
 
-    let routing_mode = std::env::var("ROUTING_MODE")
-        .ok()
-        .map(|m| match m.to_lowercase().as_str() {
-            "native" => RoutingMode::Native,
-            _ => RoutingMode::Direct,
-        })
-        .unwrap_or_else(|| {
-            log::info!("ROUTING_MODE not set, defaulting to Direct");
-            RoutingMode::Direct
-        });
-    log::info!("Using routing mode: {:?}", routing_mode);
-
-    let builder =
-        cilium_ipip_router::controller::Controller::builder().with_routing_mode(routing_mode);
+    let builder = cilium_ipip_router::controller::Controller::builder();
     let controller_handle = ControllerHandle::new(builder.cmd_tx.clone());
 
     let controller_task = tokio::spawn(async move {

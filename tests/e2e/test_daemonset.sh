@@ -104,7 +104,8 @@ caps=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{
 if echo "$caps" | grep -q "NET_ADMIN" && echo "$caps" | grep -q "SYS_ADMIN"; then
     log_info "  ✓ Pod has required capabilities (NET_ADMIN, SYS_ADMIN)"
 else
-    log_warn "  ⚠ Could not verify capabilities (may need privileged access)"
+    log_error "  ✗ Pod is missing NET_ADMIN or SYS_ADMIN: $caps"
+    exit 1
 fi
 
 # Test 8: Verify privileged mode
@@ -112,16 +113,29 @@ privileged=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonp
 if [ "$privileged" == "true" ]; then
     log_info "  ✓ Pod is running in privileged mode"
 else
-    log_warn "  ⚠ Pod may not be privileged: $privileged"
+    log_error "  ✗ Pod is not privileged: $privileged"
+    exit 1
 fi
 
-# Test 9: Verify image pull policy
-log_info "Test 9: Checking image pull policy..."
+# Test 9: Verify the router changes the node network namespace and receives
+# the exact node name through the Downward API.
+log_info "Test 9: Checking host networking and node identity..."
+host_network=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[0].spec.hostNetwork}')
+node_name_field=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[0].spec.containers[0].env[?(@.name=="NODE_NAME")].valueFrom.fieldRef.fieldPath}')
+if [ "$host_network" != "true" ] || [ "$node_name_field" != "spec.nodeName" ]; then
+    log_error "  ✗ Router must use hostNetwork and NODE_NAME=spec.nodeName"
+    exit 1
+fi
+log_info "  ✓ Router uses the node network namespace and exact node identity"
+
+# Test 10: Verify image pull policy
+log_info "Test 10: Checking image pull policy..."
 pull_policy=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[0].spec.containers[0].imagePullPolicy}')
 if [ "$pull_policy" == "Never" ]; then
     log_info "  ✓ Image pull policy is 'Never' (correct for Kind)"
 else
-    log_warn "  ⚠ Image pull policy is '$pull_policy' (expected 'Never' for Kind)"
+    log_error "  ✗ Image pull policy is '$pull_policy' (expected 'Never' for Kind)"
+    exit 1
 fi
 
 log_info "All DaemonSet deployment tests passed"

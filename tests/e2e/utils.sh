@@ -5,9 +5,6 @@ set -euo pipefail
 # E2E Test Utilities
 # =============================================================================
 
-E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$E2E_DIR/.." && pwd)"
-
 NAMESPACE="${NAMESPACE:-default}"
 
 # Colors for output
@@ -37,9 +34,10 @@ wait_for_pod_ready() {
     log_info "Waiting for pods with label '$label' to be ready..."
     
     local count=0
-    while [ $count -lt $timeout ]; do
-        local ready=$(kubectl get pods -n "$namespace" -l "$label" -o jsonpath='{.items[*].status.containerStatuses[*].ready}' 2>/dev/null | tr ' ' '\n' | grep -c "true" || echo "0")
-        local total=$(kubectl get pods -n "$namespace" -l "$label" -o jsonpath='{.items[*].status.containerStatuses[*].name}' 2>/dev/null | wc -w || echo "0")
+    local ready total
+    while [ "$count" -lt "$timeout" ]; do
+        ready=$(kubectl get pods -n "$namespace" -l "$label" -o jsonpath='{.items[*].status.containerStatuses[*].ready}' 2>/dev/null | tr ' ' '\n' | grep -c "true" || echo "0")
+        total=$(kubectl get pods -n "$namespace" -l "$label" -o jsonpath='{.items[*].status.containerStatuses[*].name}' 2>/dev/null | wc -w || echo "0")
         
         if [ "$ready" -eq "$total" ] && [ "$total" -gt 0 ]; then
             log_info "All pods are ready!"
@@ -63,10 +61,11 @@ wait_for_daemonset_ready() {
     log_info "Waiting for DaemonSet '$name' to be ready..."
     
     local count=0
-    while [ $count -lt $timeout ]; do
-        local status=$(kubectl get daemonset "$name" -n "$namespace" -o jsonpath='{.status}' 2>/dev/null)
-        local desired=$(echo "$status" | jq -r '.desiredNumberScheduled' 2>/dev/null || echo "0")
-        local ready=$(echo "$status" | jq -r '.numberReady' 2>/dev/null || echo "0")
+    local status desired ready
+    while [ "$count" -lt "$timeout" ]; do
+        status=$(kubectl get daemonset "$name" -n "$namespace" -o jsonpath='{.status}' 2>/dev/null)
+        desired=$(echo "$status" | jq -r '.desiredNumberScheduled' 2>/dev/null || echo "0")
+        ready=$(echo "$status" | jq -r '.numberReady' 2>/dev/null || echo "0")
         
         if [ "$desired" -eq "$ready" ] && [ "$desired" -gt 0 ]; then
             log_info "DaemonSet '$name' is fully rolled out ($ready/$ready)"
@@ -92,17 +91,22 @@ exec_in_node() {
 
 # Get all worker nodes
 get_worker_nodes() {
-    local workers=$(kubectl get nodes -l node-role.kubernetes.io/worker="" -o jsonpath='{.items[*].metadata.name}')
-    if [ -z "$workers" ]; then
-        kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
-    else
-        echo "$workers"
-    fi
+    kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[*].metadata.name}'
 }
 
 # Get all nodes (control-plane + workers)
 get_all_nodes() {
     kubectl get nodes -o jsonpath='{.items[*].metadata.name}'
+}
+
+# Get the router pod scheduled on an exact node name. Avoid matching the
+# human-readable `kubectl get -o wide` output, where worker also matches worker2.
+get_router_pod_for_node() {
+    local node_name=$1
+    kubectl get pods -n "$NAMESPACE" \
+        -l app=cilium-ipip-router \
+        --field-selector "spec.nodeName=$node_name" \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
 }
 
 # Collect logs from all router pods
@@ -112,7 +116,8 @@ collect_logs() {
     log_info "Collecting logs to $output_dir..."
     mkdir -p "$output_dir"
     
-    local pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
+    local pods
+    pods=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o jsonpath='{.items[*].metadata.name}')
     
     for pod in $pods; do
         log_info "Collecting logs from $pod..."

@@ -1,7 +1,4 @@
-use super::{
-    builder::ControllerBuilder, builder::RoutingMode, handle::ControllerCommand,
-    handle::ControllerHandle,
-};
+use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
 use crate::ipip::executor::{delete_route_with_executor, update_route_with_executor, IpCommand};
 use crate::ipip::Node;
 
@@ -29,10 +26,9 @@ impl Controller {
     }
 
     pub fn new(builder: ControllerBuilder) -> Self {
-        let routing_mode = builder.routing_mode.clone();
         Controller {
             handle: ControllerHandle::new(builder.cmd_tx.clone()),
-            fut: Box::pin(ControllerInner::watch(builder, routing_mode)),
+            fut: Box::pin(ControllerInner::watch(builder)),
         }
     }
 
@@ -55,7 +51,7 @@ impl Future for Controller {
 
 pub async fn run() -> Controller {
     log::info!("start controller");
-    Controller::new(Controller::builder().with_routing_mode(RoutingMode::Direct))
+    Controller::new(Controller::builder())
 }
 
 pub struct ControllerInner {}
@@ -80,10 +76,7 @@ impl ControllerInner {
         crate::ipip::executor::tunnel_exists(executor, tunnel_name)
     }
 
-    pub async fn watch(
-        mut builder: ControllerBuilder,
-        routing_mode: super::builder::RoutingMode,
-    ) -> io::Result<()> {
+    pub async fn watch(mut builder: ControllerBuilder) -> io::Result<()> {
         let client = match Client::try_default().await {
             Ok(c) => c,
             Err(e) => {
@@ -108,13 +101,6 @@ impl ControllerInner {
             }
         };
 
-        let skip_route_management = matches!(routing_mode, super::builder::RoutingMode::Native);
-        if skip_route_management {
-            log::info!(
-                "Routing mode is native, skipping manual route management (Cilium handles routing)"
-            );
-        }
-
         let mut tick = time::interval(Duration::from_secs(1));
 
         loop {
@@ -123,16 +109,10 @@ impl ControllerInner {
                     match status {
                         WatchEvent::Added(node) |
                         WatchEvent::Modified(node)  => {
-                            if skip_route_management {
-                                log::trace!("Skipping route update for node {} in native mode", node.metadata.name.as_deref().unwrap_or("unknown"));
-                            } else {
-                                update_route_with_executor(node, &IpCommand::new()).await;
-                            }
+                            update_route_with_executor(node, &IpCommand::new()).await;
                         },
                         WatchEvent::Deleted(node) => {
-                            if !skip_route_management {
-                                delete_route_with_executor(node, &IpCommand::new()).await;
-                            }
+                            delete_route_with_executor(node, &IpCommand::new()).await;
                         },
                          WatchEvent::Bookmark(_s) => {},
                          WatchEvent::Error(s) => println!("{}", s),

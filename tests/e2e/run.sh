@@ -2,12 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 total_tests=0
@@ -16,22 +13,23 @@ failed_tests=0
 
 run_test() {
     local test_file=$1
-    local test_name=$(basename "$test_file" .sh)
+    local test_name
+    test_name=$(basename "$test_file" .sh)
     
     echo ""
     echo "========================================"
     echo "Running: $test_name"
     echo "========================================"
     
-    ((total_tests++))
+    total_tests=$((total_tests + 1))
     
     if bash "$test_file"; then
         echo -e "${GREEN}✓ PASSED: $test_name${NC}"
-        ((passed_tests++))
+        passed_tests=$((passed_tests + 1))
         return 0
     else
         echo -e "${RED}✗ FAILED: $test_name${NC}"
-        ((failed_tests++))
+        failed_tests=$((failed_tests + 1))
         return 1
     fi
 }

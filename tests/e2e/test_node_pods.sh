@@ -54,7 +54,8 @@ log_info "Test 1: Checking pod count matches node count..."
 if [ "$pod_count" -eq "$node_count" ]; then
     log_info "  ✓ Pod count ($pod_count) matches node count ($node_count)"
 else
-    log_warn "  ⚠ Pod count ($pod_count) != node count ($node_count) - DaemonSet may still be rolling out"
+    log_error "  ✗ Pod count ($pod_count) != node count ($node_count)"
+    exit 1
 fi
 
 # Test 2: Verify each node has exactly one router pod
@@ -63,17 +64,24 @@ pass_count=0
 fail_count=0
 
 for node in $all_nodes; do
-    pods_on_node=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router -o wide | grep -c "$node" || true)
+    pods_on_node=$(kubectl get pods -n "$NAMESPACE" -l app=cilium-ipip-router \
+        --field-selector "spec.nodeName=$node" -o name | wc -l)
     if [ "$pods_on_node" -eq 1 ]; then
         log_info "  ✓ Node $node has 1 router pod"
         pass_count=$((pass_count + 1))
     elif [ "$pods_on_node" -eq 0 ]; then
-        log_warn "  ⚠ Node $node has 0 router pods (may be control plane)"
+        log_error "  ✗ Node $node has 0 router pods"
+        fail_count=$((fail_count + 1))
     else
         log_error "  ✗ Node $node has $pods_on_node router pods (expected 1)"
         fail_count=$((fail_count + 1))
     fi
 done
+
+if [ "$fail_count" -gt 0 ]; then
+    log_error "$test_name FAILED: router pod distribution is invalid"
+    exit 1
+fi
 
 # Test 3: Verify pods are running with correct restart policy
 log_info "Test 3: Checking pod status..."
@@ -88,6 +96,8 @@ done
 
 if $all_running; then
     log_info "  ✓ All router pods are Running"
+else
+    exit 1
 fi
 
 # Test 4: Check pod resource limits

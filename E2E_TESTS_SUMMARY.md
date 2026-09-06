@@ -11,10 +11,10 @@ Added comprehensive end-to-end test suite using Kind for the Cilium IPIP Router 
 |-----------|---------|
 | `test_health.sh` | Verifies HTTP health endpoints on all router pods |
 | `test_daemonset.sh` | Validates DaemonSet deployment, RBAC, pod labels |
-| `test_tunnels.sh` | Verifies IPIP tunnels exist on each worker node |
-| `test_routes.sh` | Validates kernel routes for pod CIDRs via tunnels |
+| `test_tunnels.sh` | Verifies all remote-node IPIP tunnels and cross-node traffic |
+| `test_routes.sh` | Validates every remote PodCIDR route uses the expected tunnel |
 | `test_node_pods.sh` | Checks pod distribution (1 pod per node) |
-| `test_lifecycle.sh` | Tests node cordon/drain/uncordon workflow |
+| `test_lifecycle.sh` | Tests route/tunnel reconciliation for Node add/delete events |
 
 ### 2. Rust-based E2E Tests (3 tests)
 
@@ -92,7 +92,7 @@ jobs:
 1. **Proper Kind Integration** - Uses Kind cluster with 3-node configuration
 2. **Node-level Testing** - E2E tests execute `kubectl exec` to verify tunnels/routes on actual worker nodes
 3. **Health Validation** - HTTP endpoint tests verify router health
-4. **Lifecycle Testing** - Tests node cordon/drain/uncordon workflow
+4. **Lifecycle Testing** - Tests actual Kubernetes Node add/delete watch events
 5. **RBAC Verification** - Validates ServiceAccount, ClusterRole, ClusterRoleBinding
 6. **DaemonSet Checks** - Ensures proper pod distribution
 
