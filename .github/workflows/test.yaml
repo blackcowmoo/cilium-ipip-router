@@ -19,6 +19,8 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-cilium-ipip-router-${{ github.head_ref || github.ref }}
+      - name: Test E2E shell assertions without a cluster
+        run: python3 -m unittest discover -s tests/e2e/harness -v
       - name: Format
         run: cargo fmt --all -- --check
       - name: Build

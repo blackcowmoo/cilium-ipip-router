@@ -61,8 +61,12 @@ The E2E test suite covers:
    - Checks pod status and resource limits
 
 6. **Node Lifecycle** (`test_lifecycle.sh`)
-   - Adds and deletes a synthetic Kubernetes Node
-   - Verifies the watch event creates and removes its tunnel and route on every real node
+   - Creates, deletes, and recreates a uniquely named synthetic Node with a new remote IP
+   - Checks the exact PodCIDR, tunnel device, remote endpoint, and UP flag on every real node
+   - Requires successful network-state reads before declaring deletion complete
+   - Fails on missing router pods, duplicate routes, and stale tunnels or links
+   - Cleans up owned Nodes and verifies route/tunnel removal, including after failures
+   - Requires the test PodCIDR `10.254.0.0/24` to be unused; run lifecycle tests serially per cluster
 
 7. **Rust-based E2E Tests** (`e2e_integration_tests.rs`)
    - Controller watch functionality
@@ -95,3 +99,17 @@ When tests fail, logs are collected to `./e2e-logs/`:
 - Kind cluster logs (via `kind export logs`)
 
 Review these logs to understand failures.
+
+## Testing the E2E assertions without Kubernetes
+
+Run the isolated shell-harness regression tests with Python 3 and Bash:
+
+```bash
+python3 -m unittest discover -s tests/e2e/harness -v
+```
+
+These tests execute the lifecycle script's actual assertions against deterministic
+`kubectl` fixtures. They cover failed reads, missing pods, incorrect endpoints and
+devices, duplicate routes, DOWN links, stale resources, cleanup failures, and the
+complete create/delete/recreate sequence. CI runs them in `build-and-test`.
+They validate the test harness; the Kind suite is still required to validate the router.

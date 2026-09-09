@@ -14,7 +14,7 @@ Added comprehensive end-to-end test suite using Kind for the Cilium IPIP Router 
 | `test_tunnels.sh` | Verifies all remote-node IPIP tunnels and cross-node traffic |
 | `test_routes.sh` | Validates every remote PodCIDR route uses the expected tunnel |
 | `test_node_pods.sh` | Checks pod distribution (1 pod per node) |
-| `test_lifecycle.sh` | Tests route/tunnel reconciliation for Node add/delete events |
+| `test_lifecycle.sh` | Tests route/tunnel reconciliation for Node add/delete/recreate events |
 
 ### 2. Rust-based E2E Tests (3 tests)
 
@@ -107,3 +107,14 @@ This approach provides:
 - Comprehensive validation via E2E tests
 - Clear separation of concerns
 - Proper CI workflow integration
+
+## Lifecycle regression coverage
+
+The lifecycle scenario now recreates the same Node name with a different remote IP
+and verifies exact routes, IPIP endpoints, and UP links on every real node. Failed
+network reads and missing router pods cannot count as successful deletion. Cleanup
+preserves the original failure and checks that owned resources are removed.
+
+`python3 -m unittest discover -s tests/e2e/harness -v` runs 12 isolated harness tests
+without a cluster, including the full lifecycle sequence and cleanup failure paths.
+The `build-and-test` CI job runs this suite independently of Kind setup.
