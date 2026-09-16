@@ -1,17 +1,14 @@
+use super::node_routes::NodeRoutes;
 use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
-use crate::ipip::executor::{
-    delete_route_with_executor, get_local_node_name, get_node_cidr, reconcile_route_with_executor,
-    IpCommand, RouteConfig,
-};
+use crate::ipip::executor::{get_local_node_name, IpCommand, RouteConfig};
 use crate::ipip::Node;
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
 use kube::{
-    api::{Api, WatchEvent, WatchParams},
+    api::{Api, WatchParams},
     client::Client,
 };
-use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -130,104 +127,19 @@ impl ControllerInner {
         };
         let route_config = RouteConfig::from_env();
         let executor = IpCommand::new();
-        let mut known_nodes = node_list
-            .items
-            .into_iter()
-            .filter_map(|node| node.metadata.name.clone().map(|name| (name, node)))
-            .collect::<HashMap<String, Node>>();
 
         match route_config.node_group_label() {
             Some(label) => log::info!("Using node group label {} for route selection", label),
             None => log::info!("NODE_GROUP_LABEL is not set; all remote nodes use IPIP"),
         }
 
-        let Some(local_node) = known_nodes.get(&local_node_name) else {
-            return Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("local Kubernetes node {local_node_name} was not found"),
-            ));
-        };
-        for remote_node in known_nodes.values() {
-            if let Err(error) =
-                reconcile_route_with_executor(local_node, remote_node, &route_config, &executor)
-            {
-                log::error!(
-                    "Failed to reconcile initial route for node {}: {}",
-                    remote_node.metadata.name.as_deref().unwrap_or("<unknown>"),
-                    error
-                );
-            }
-        }
+        let mut routes = NodeRoutes::new(local_node_name, route_config, node_list.items);
+        routes.reconcile_all(&executor)?;
 
         loop {
             tokio::select! {
                 Ok(Some(status)) = stream.try_next() => {
-                    match status {
-                        WatchEvent::Added(node) |
-                        WatchEvent::Modified(node)  => {
-                            let node_name = node.metadata.name.clone().unwrap_or_default();
-                            if node_name.is_empty() {
-                                log::warn!("Ignoring node event without metadata.name");
-                                continue;
-                            }
-
-                            if let Some(previous) = known_nodes.get(&node_name) {
-                                if node_name != local_node_name
-                                    && get_node_cidr(previous) != get_node_cidr(&node)
-                                    && get_node_cidr(previous).is_some()
-                                {
-                                    delete_route_with_executor(previous.clone(), &executor).await;
-                                }
-                            }
-                            known_nodes.insert(node_name.clone(), node.clone());
-
-                            let Some(local_node) = known_nodes.get(&local_node_name) else {
-                                log::debug!(
-                                    "Waiting for local node {} before reconciling {}",
-                                    local_node_name,
-                                    node_name
-                                );
-                                continue;
-                            };
-
-                            if node_name == local_node_name {
-                                for remote_node in known_nodes.values() {
-                                    if let Err(error) = reconcile_route_with_executor(
-                                        local_node,
-                                        remote_node,
-                                        &route_config,
-                                        &executor,
-                                    ) {
-                                        log::error!(
-                                            "Failed to reconcile route for node {}: {}",
-                                            remote_node.metadata.name.as_deref().unwrap_or("<unknown>"),
-                                            error
-                                        );
-                                    }
-                                }
-                            } else if let Err(error) = reconcile_route_with_executor(
-                                local_node,
-                                &node,
-                                &route_config,
-                                &executor,
-                            ) {
-                                log::error!(
-                                    "Failed to reconcile route for node {}: {}",
-                                    node_name,
-                                    error
-                                );
-                            }
-                        },
-                        WatchEvent::Deleted(node) => {
-                            let node_name = node.metadata.name.clone().unwrap_or_default();
-                            known_nodes.remove(&node_name);
-                            if node_name != local_node_name {
-                                delete_route_with_executor(node, &executor).await;
-                            }
-                        },
-                         WatchEvent::Bookmark(_s) => {},
-                         WatchEvent::Error(s) => println!("{}", s),
-                    }
+                    routes.handle_event(status, &executor).await;
                 },
                 _ = tick.tick()  => {
                     if let Ok(sig) = builder.cmd_rx.try_recv() {

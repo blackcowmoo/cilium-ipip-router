@@ -458,6 +458,10 @@ pub async fn delete_route_with_executor<T: IpCommandExecutor>(node: Node, execut
 }
 
 #[cfg(test)]
+#[path = "routing_tests.rs"]
+mod routing_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use k8s_openapi::api::core::v1::{NodeAddress, NodeSpec, NodeStatus};
