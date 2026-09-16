@@ -6,3 +6,4 @@ mod builder;
 mod handle;
 #[cfg(test)]
 mod ipip_tests;
+mod node_routes;

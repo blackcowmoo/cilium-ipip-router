@@ -1,11 +1,12 @@
+use super::node_routes::NodeRoutes;
 use super::{builder::ControllerBuilder, handle::ControllerCommand, handle::ControllerHandle};
-use crate::ipip::executor::{delete_route_with_executor, update_route_with_executor, IpCommand};
+use crate::ipip::executor::{get_local_node_name, IpCommand, RouteConfig};
 use crate::ipip::Node;
 
 use futures::{StreamExt, TryStreamExt};
 use futures_core::future::BoxFuture;
 use kube::{
-    api::{Api, WatchEvent, WatchParams},
+    api::{Api, WatchParams},
     client::Client,
 };
 use std::future::Future;
@@ -90,7 +91,23 @@ impl ControllerInner {
         let nodes: Api<Node> = Api::all(client);
         let lp = WatchParams::default();
 
-        let mut stream = match nodes.watch(&lp, "0").await {
+        let node_list = match nodes.list(&Default::default()).await {
+            Ok(list) => list,
+            Err(e) => {
+                log::error!("failed to list nodes: {}", e);
+                return Err(io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    "Kubernetes node list unavailable",
+                ));
+            }
+        };
+        let resource_version = node_list
+            .metadata
+            .resource_version
+            .clone()
+            .unwrap_or_else(|| "0".to_string());
+
+        let mut stream = match nodes.watch(&lp, &resource_version).await {
             Ok(s) => s.boxed(),
             Err(e) => {
                 log::error!("failed to watch nodes: {}", e);
@@ -102,21 +119,27 @@ impl ControllerInner {
         };
 
         let mut tick = time::interval(Duration::from_secs(1));
+        let Some(local_node_name) = get_local_node_name() else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "NODE_NAME or HOSTNAME must identify the local Kubernetes node",
+            ));
+        };
+        let route_config = RouteConfig::from_env();
+        let executor = IpCommand::new();
+
+        match route_config.node_group_label() {
+            Some(label) => log::info!("Using node group label {} for route selection", label),
+            None => log::info!("NODE_GROUP_LABEL is not set; all remote nodes use IPIP"),
+        }
+
+        let mut routes = NodeRoutes::new(local_node_name, route_config, node_list.items);
+        routes.reconcile_all(&executor)?;
 
         loop {
             tokio::select! {
                 Ok(Some(status)) = stream.try_next() => {
-                    match status {
-                        WatchEvent::Added(node) |
-                        WatchEvent::Modified(node)  => {
-                            update_route_with_executor(node, &IpCommand::new()).await;
-                        },
-                        WatchEvent::Deleted(node) => {
-                            delete_route_with_executor(node, &IpCommand::new()).await;
-                        },
-                         WatchEvent::Bookmark(_s) => {},
-                         WatchEvent::Error(s) => println!("{}", s),
-                    }
+                    routes.handle_event(status, &executor).await;
                 },
                 _ = tick.tick()  => {
                     if let Ok(sig) = builder.cmd_rx.try_recv() {
