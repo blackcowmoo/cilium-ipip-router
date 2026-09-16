@@ -9,8 +9,10 @@ This document describes the high-level architecture of the Cilium IPIP Router sy
 Each router instance operates independently on its assigned node to manage IPIP tunnel routes using kernel routing.
 
 **Responsibilities:**
-- Create and manage IPIP tunnels for local traffic routing
-- Update kernel routing tables for Cilium CNI overlay
+- Watch Node add, update, and delete events, including delayed PodCIDR assignment
+- Create direct routes between nodes in the same group and InternalIP subnet
+- Create and manage IPIP tunnels between different node groups
+- Reconcile and remove kernel routes for Cilium CNI networking
 - Handle graceful shutdown sequences
 - Manage node-local network configuration
 
@@ -46,11 +48,13 @@ Centralized logging configuration.
 ```
 Node Startup
       ↓
-Initialize Router
+Watch Kubernetes Nodes
       ↓
-Create IPIP Tunnel
+Wait for Node IP and PodCIDR
       ↓
-Update Kernel Routes
+Compare the configured node-group label
+      ↓
+Same group and on-link InternalIP: direct route / Otherwise: IPIP route
 ```
 
 ## Concurrency Model
